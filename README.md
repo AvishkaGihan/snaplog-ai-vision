@@ -20,7 +20,7 @@ This is a monorepo using npm workspaces:
 
 ```bash
 # Clone the repository
-git clone <repo-url>
+git clone https://github.com/AvishkaGihan/snaplog-ai-vision.git
 cd snaplog-ai-vision
 
 # Install all dependencies
