@@ -1,0 +1,90 @@
+# generated: 2026-02-04
+# project: snaplog-ai-vision
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-02-04
+project: snaplog-ai-vision
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+
+development_status:
+  epic-1: in-progress
+  1-1-scaffold-app-backend-shared-contracts: done
+  1-2-email-password-registration: backlog
+  1-3-sign-in-and-sign-out: backlog
+  1-4-password-reset: backlog
+  1-5-settings-profile-screen-with-privacy-policy-and-account-actions: backlog
+  1-6-delete-account-request-with-immediate-logout-and-backend-cleanup: backlog
+  1-7-per-user-security-isolation-and-secrets-posture: backlog
+  epic-1-retrospective: optional
+
+  epic-2: backlog
+  2-1-capture-a-new-item-photo-into-a-local-draft: backlog
+  2-2-import-an-existing-photo-into-a-local-draft: backlog
+  2-3-burst-capture-mode-with-batch-cap-and-proof-of-capture-feedback: backlog
+  2-4-local-persistence-for-drafts-photos-metadata-with-offline-proof: backlog
+  2-5-delete-a-local-draft: backlog
+  epic-2-retrospective: optional
+
+  epic-3: backlog
+  3-1-queue-job-model-and-persistence-across-app-restarts: backlog
+  3-2-upload-processing-with-concurrency-cap: backlog
+  3-3-resume-processing-when-connectivity-returns: backlog
+  3-4-failure-states-and-retry-workflow: backlog
+  3-5-queue-screen-with-consistent-statuses-and-actionable-errors: backlog
+  epic-3-retrospective: optional
+
+  epic-4: backlog
+  4-1-server-side-ai-extraction-with-strict-schema-validation-and-taxonomy-constraints: backlog
+  4-2-validate-extracted-fields-and-protect-against-pii: backlog
+  4-3-review-first-flow-for-ai-generated-item-details: backlog
+  4-4-edit-item-fields-during-review: backlog
+  4-5-manual-fallback-flow-when-ai-output-is-invalid: backlog
+  4-6-save-reviewed-item-into-inventory: backlog
+  epic-4-retrospective: optional
+
+  epic-5: backlog
+  5-1-inventory-list-with-search-and-filters: backlog
+  5-2-inventory-item-detail-screen: backlog
+  5-3-edit-an-already-saved-item: backlog
+  5-4-delete-an-inventory-item: backlog
+  epic-5-retrospective: optional
+
+  epic-6: backlog
+  6-1-export-inventory-as-csv-with-signed-image-links: backlog
+  6-2-export-authorization-and-per-user-scoping: backlog
+  6-3-export-failure-ux-with-actionable-retry: backlog
+  6-4-local-notifications-for-batch-completion-and-items-ready: backlog
+  epic-6-retrospective: optional

@@ -1,0 +1,1551 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SnapLog – UX Design Directions</title>
+    <style>
+      :root {
+        /* Visual Foundation – Graphite + Cyan */
+        --bg-app: #0a0d10;
+        --bg-surface: #11161c;
+        --bg-surface2: #18212b;
+        --border: #2a3644;
+        --text: #eaf0f6;
+        --text-2: #a7b2c2;
+        --text-3: #7e8a9b;
+        --accent: #34d3ff;
+
+        /* Status colors */
+        --st-draft: #6b7280;
+        --st-uploading: #3b82f6;
+        --st-analyzing: #8b5cf6;
+        --st-ready: #22c55e;
+        --st-failed: #ef4444;
+        --st-confirmed: #14b8a6;
+
+        /* Density / layout */
+        --r: 10px;
+        --r-sm: 8px;
+        --r-xs: 6px;
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 12px;
+        --space-4: 16px;
+        --space-5: 20px;
+        --space-6: 24px;
+
+        /* Fonts (use system fallback; Inter/JetBrains Mono can be installed later in app) */
+        --ui-font:
+          ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+          Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        --mono-font:
+          ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+
+        --shadow-1: 0 10px 30px rgba(0, 0, 0, 0.55);
+        --shadow-2: 0 12px 40px rgba(0, 0, 0, 0.7);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        background:
+          radial-gradient(
+            1200px 800px at 30% -10%,
+            rgba(52, 211, 255, 0.08),
+            transparent 60%
+          ),
+          radial-gradient(
+            900px 600px at 85% 15%,
+            rgba(139, 92, 246, 0.06),
+            transparent 55%
+          ),
+          var(--bg-app);
+        color: var(--text);
+        font-family: var(--ui-font);
+        line-height: 1.25;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .wrap {
+        max-width: 1220px;
+        margin: 0 auto;
+        padding: 26px 18px 60px;
+      }
+
+      .header {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        justify-content: space-between;
+        margin-bottom: 18px;
+      }
+
+      .title {
+        display: grid;
+        gap: 6px;
+      }
+
+      .title h1 {
+        margin: 0;
+        font-size: 20px;
+        letter-spacing: 0.2px;
+        font-weight: 650;
+      }
+
+      .title p {
+        margin: 0;
+        color: var(--text-2);
+        font-size: 13px;
+        max-width: 80ch;
+      }
+
+      .controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .chip {
+        border: 1px solid var(--border);
+        background: rgba(17, 22, 28, 0.75);
+        color: var(--text);
+        border-radius: 999px;
+        padding: 8px 10px;
+        font-size: 12px;
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        user-select: none;
+      }
+
+      select,
+      button {
+        appearance: none;
+        border: 1px solid var(--border);
+        background: rgba(17, 22, 28, 0.75);
+        color: var(--text);
+        border-radius: 10px;
+        padding: 9px 10px;
+        font-size: 12px;
+        cursor: pointer;
+        outline: none;
+      }
+
+      select:focus,
+      button:focus {
+        border-color: rgba(52, 211, 255, 0.55);
+        box-shadow: 0 0 0 3px rgba(52, 211, 255, 0.12);
+      }
+
+      button.primary {
+        background: linear-gradient(
+          180deg,
+          rgba(52, 211, 255, 0.18),
+          rgba(52, 211, 255, 0.08)
+        );
+        border-color: rgba(52, 211, 255, 0.35);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1.25fr 1fr;
+        gap: 14px;
+        align-items: start;
+      }
+
+      @media (max-width: 980px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        .controls {
+          justify-content: flex-start;
+        }
+      }
+
+      .card {
+        border: 1px solid rgba(42, 54, 68, 0.9);
+        background: rgba(17, 22, 28, 0.82);
+        border-radius: 14px;
+        box-shadow: var(--shadow-1);
+        overflow: hidden;
+      }
+
+      .card .card-h {
+        padding: 12px 14px;
+        border-bottom: 1px solid rgba(42, 54, 68, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .card .card-h .label {
+        font-size: 12px;
+        color: var(--text-2);
+        letter-spacing: 0.2px;
+      }
+
+      .card .card-h .meta {
+        font-family: var(--mono-font);
+        font-size: 11px;
+        color: var(--text-3);
+      }
+
+      .card .card-b {
+        padding: 14px;
+      }
+
+      /* Phone mock */
+      .phone-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+
+      @media (max-width: 680px) {
+        .phone-row {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .phone {
+        width: 100%;
+        max-width: 420px;
+        margin: 0 auto;
+        background: #06080b;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 26px;
+        padding: 12px;
+        box-shadow: var(--shadow-2);
+        position: relative;
+      }
+
+      .screen {
+        border-radius: 18px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: var(--bg-app);
+        min-height: 720px;
+        position: relative;
+      }
+
+      .statusbar {
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 10px;
+        color: rgba(234, 240, 246, 0.75);
+        font-size: 11px;
+        border-bottom: 1px solid rgba(42, 54, 68, 0.5);
+        background: rgba(17, 22, 28, 0.55);
+      }
+
+      .appbar {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        align-items: center;
+        padding: 12px 12px;
+        border-bottom: 1px solid rgba(42, 54, 68, 0.7);
+        background: rgba(17, 22, 28, 0.82);
+      }
+
+      .appbar h2 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 650;
+        letter-spacing: 0.2px;
+      }
+
+      .mini-queue {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        padding: 7px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(52, 211, 255, 0.25);
+        background: rgba(52, 211, 255, 0.08);
+        color: var(--text);
+        font-size: 12px;
+        white-space: nowrap;
+      }
+
+      .mini-queue .mono {
+        font-family: var(--mono-font);
+        font-size: 11px;
+        color: rgba(234, 240, 246, 0.9);
+      }
+
+      .content {
+        padding: 12px;
+      }
+
+      /* Bottom tabs */
+      .tabs {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        border-top: 1px solid rgba(42, 54, 68, 0.8);
+        background: rgba(17, 22, 28, 0.92);
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        padding: 8px 6px 10px;
+        gap: 4px;
+      }
+
+      .tab {
+        text-align: center;
+        font-size: 11px;
+        color: rgba(234, 240, 246, 0.72);
+        padding: 8px 6px;
+        border-radius: 10px;
+        user-select: none;
+      }
+
+      .tab.active {
+        color: var(--text);
+        border: 1px solid rgba(52, 211, 255, 0.25);
+        background: rgba(52, 211, 255, 0.1);
+      }
+
+      /* FAB */
+      .fab {
+        position: absolute;
+        right: 14px;
+        bottom: 74px;
+        background: rgba(52, 211, 255, 0.16);
+        border: 1px solid rgba(52, 211, 255, 0.38);
+        color: var(--text);
+        border-radius: 999px;
+        padding: 12px 14px;
+        font-weight: 650;
+        letter-spacing: 0.2px;
+        display: inline-flex;
+        gap: 10px;
+        align-items: center;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(42, 54, 68, 0.8);
+        background: rgba(17, 22, 28, 0.65);
+        color: rgba(234, 240, 246, 0.85);
+        font-size: 12px;
+      }
+
+      .pill .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 99px;
+        background: var(--st-ready);
+        box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12);
+      }
+
+      .stack {
+        display: grid;
+        gap: 10px;
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: 52px 1fr auto;
+        gap: 10px;
+        align-items: center;
+        padding: 10px;
+        border: 1px solid rgba(42, 54, 68, 0.75);
+        border-radius: 12px;
+        background: rgba(17, 22, 28, 0.55);
+      }
+
+      .thumb {
+        width: 52px;
+        height: 52px;
+        border-radius: 12px;
+        border: 1px solid rgba(42, 54, 68, 0.9);
+        background: linear-gradient(
+          140deg,
+          rgba(52, 211, 255, 0.12),
+          rgba(139, 92, 246, 0.08)
+        );
+        position: relative;
+        overflow: hidden;
+      }
+
+      .thumb::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          120px 80px at 30% 30%,
+          rgba(255, 255, 255, 0.12),
+          transparent 55%
+        );
+        opacity: 0.85;
+      }
+
+      .fields {
+        display: grid;
+        gap: 4px;
+      }
+
+      .fields .top {
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+        flex-wrap: wrap;
+      }
+
+      .k {
+        font-size: 13px;
+        font-weight: 650;
+        color: var(--text);
+      }
+
+      .v {
+        font-size: 12px;
+        color: rgba(234, 240, 246, 0.8);
+      }
+
+      .mono {
+        font-family: var(--mono-font);
+        font-size: 11px;
+        color: rgba(234, 240, 246, 0.78);
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        border: 1px solid rgba(42, 54, 68, 0.8);
+        background: rgba(24, 33, 43, 0.65);
+        color: rgba(234, 240, 246, 0.9);
+      }
+
+      .badge .b-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--st-ready);
+      }
+
+      .btn {
+        border: 1px solid rgba(42, 54, 68, 0.85);
+        background: rgba(24, 33, 43, 0.55);
+        color: rgba(234, 240, 246, 0.9);
+        padding: 8px 10px;
+        border-radius: 10px;
+        font-size: 12px;
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        cursor: default;
+        user-select: none;
+      }
+
+      .btn.primary {
+        border-color: rgba(52, 211, 255, 0.35);
+        background: rgba(52, 211, 255, 0.1);
+      }
+
+      .btn.danger {
+        border-color: rgba(239, 68, 68, 0.35);
+        background: rgba(239, 68, 68, 0.1);
+      }
+
+      .subtle {
+        color: rgba(167, 178, 194, 0.92);
+        font-size: 12px;
+      }
+
+      /* Capture screen */
+      .camera {
+        background:
+          radial-gradient(
+            900px 600px at 20% 15%,
+            rgba(52, 211, 255, 0.1),
+            transparent 60%
+          ),
+          radial-gradient(
+            700px 480px at 90% 35%,
+            rgba(139, 92, 246, 0.08),
+            transparent 55%
+          ),
+          linear-gradient(180deg, #0a0d10 0%, #06080b 100%);
+        min-height: 720px;
+        position: relative;
+      }
+
+      .camera .hud {
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        top: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .camera .hud .queue {
+        padding: 7px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(52, 211, 255, 0.25);
+        background: rgba(17, 22, 28, 0.45);
+        backdrop-filter: blur(8px);
+        font-size: 12px;
+        color: rgba(234, 240, 246, 0.92);
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .camera .hud .queue .mono {
+        font-size: 11px;
+        color: rgba(234, 240, 246, 0.85);
+      }
+
+      .camera .tray {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 10px 12px 90px;
+        border-top: 1px solid rgba(42, 54, 68, 0.65);
+        background: rgba(17, 22, 28, 0.55);
+        backdrop-filter: blur(10px);
+      }
+
+      .tray-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      .thumb-strip {
+        display: flex;
+        gap: 8px;
+        overflow: hidden;
+      }
+
+      .t {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        border: 1px solid rgba(42, 54, 68, 0.85);
+        background: linear-gradient(
+          140deg,
+          rgba(52, 211, 255, 0.12),
+          rgba(139, 92, 246, 0.08)
+        );
+      }
+
+      .shutter {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        bottom: 34px;
+        width: 68px;
+        height: 68px;
+        border-radius: 999px;
+        border: 2px solid rgba(234, 240, 246, 0.75);
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.65);
+        background: radial-gradient(
+          circle at 35% 35%,
+          rgba(255, 255, 255, 0.14),
+          rgba(17, 22, 28, 0.35)
+        );
+      }
+
+      .shutter::after {
+        content: "";
+        position: absolute;
+        inset: 10px;
+        border-radius: 999px;
+        background: radial-gradient(
+          circle at 35% 35%,
+          rgba(52, 211, 255, 0.1),
+          rgba(17, 22, 28, 0.25)
+        );
+        border: 1px solid rgba(52, 211, 255, 0.22);
+      }
+
+      .finish {
+        position: absolute;
+        right: 12px;
+        bottom: 38px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(52, 211, 255, 0.25);
+        background: rgba(52, 211, 255, 0.08);
+        color: rgba(234, 240, 246, 0.95);
+        font-size: 12px;
+        font-weight: 650;
+        letter-spacing: 0.2px;
+      }
+
+      /* Review screen */
+      .review {
+        display: grid;
+        gap: 10px;
+      }
+
+      .panel {
+        border: 1px solid rgba(42, 54, 68, 0.8);
+        background: rgba(17, 22, 28, 0.55);
+        border-radius: 14px;
+        padding: 10px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .panel .hdr {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .panel .hdr .h {
+        font-size: 12px;
+        font-weight: 650;
+        color: rgba(234, 240, 246, 0.92);
+      }
+
+      .panel .hdr .r {
+        font-size: 11px;
+        color: rgba(167, 178, 194, 0.92);
+        font-family: var(--mono-font);
+      }
+
+      .kv {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .field {
+        border: 1px solid rgba(42, 54, 68, 0.85);
+        background: rgba(24, 33, 43, 0.55);
+        border-radius: 12px;
+        padding: 9px 10px;
+        display: grid;
+        gap: 4px;
+      }
+
+      .field .l {
+        font-size: 10.5px;
+        color: rgba(167, 178, 194, 0.92);
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+      }
+
+      .field .val {
+        font-size: 13px;
+        font-weight: 650;
+        color: rgba(234, 240, 246, 0.95);
+      }
+
+      .field.secondary .val {
+        font-weight: 550;
+      }
+
+      .review-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .review-actions .btn {
+        justify-content: center;
+        padding: 12px 10px;
+        border-radius: 12px;
+        font-weight: 650;
+      }
+
+      /* Directions overview list */
+      .dirlist {
+        display: grid;
+        gap: 10px;
+      }
+
+      .diritem {
+        border: 1px solid rgba(42, 54, 68, 0.85);
+        background: rgba(17, 22, 28, 0.55);
+        border-radius: 14px;
+        padding: 12px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .diritem .top {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: baseline;
+      }
+
+      .diritem .name {
+        font-weight: 700;
+        font-size: 13px;
+        letter-spacing: 0.2px;
+      }
+
+      .diritem .desc {
+        font-size: 12px;
+        color: rgba(167, 178, 194, 0.92);
+      }
+
+      .tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .tag {
+        font-size: 11px;
+        padding: 5px 8px;
+        border-radius: 999px;
+        border: 1px solid rgba(42, 54, 68, 0.85);
+        background: rgba(24, 33, 43, 0.5);
+        color: rgba(234, 240, 246, 0.85);
+      }
+
+      .tag.accent {
+        border-color: rgba(52, 211, 255, 0.25);
+        background: rgba(52, 211, 255, 0.1);
+      }
+
+      /* Side-by-side compare */
+      .compare {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+
+      @media (max-width: 980px) {
+        .compare {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .hint {
+        font-size: 12px;
+        color: rgba(167, 178, 194, 0.92);
+        padding: 10px 12px;
+        border: 1px dashed rgba(42, 54, 68, 0.9);
+        border-radius: 14px;
+        background: rgba(17, 22, 28, 0.45);
+      }
+
+      .ok {
+        color: rgba(234, 240, 246, 0.9);
+        font-weight: 650;
+      }
+
+      .muted {
+        color: rgba(167, 178, 194, 0.92);
+      }
+
+      .divider {
+        height: 1px;
+        background: rgba(42, 54, 68, 0.7);
+        margin: 14px 0;
+      }
+
+      .small {
+        font-size: 11px;
+        color: rgba(167, 178, 194, 0.86);
+      }
+
+      .kbd {
+        font-family: var(--mono-font);
+        border: 1px solid rgba(42, 54, 68, 0.9);
+        background: rgba(24, 33, 43, 0.55);
+        padding: 2px 6px;
+        border-radius: 8px;
+        font-size: 11px;
+        color: rgba(234, 240, 246, 0.88);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="header">
+        <div class="title">
+          <h1>SnapLog – Design Direction Mockups</h1>
+          <p>
+            Built for the defined core experience:
+            <span class="ok">Burst‑Capture</span> (Conveyor Belt input) +
+            <span class="ok">Inbox Zero</span> review output. Navigation model:
+            <span class="ok">Tabs + persistent mini‑queue instrument panel</span
+            >. Capture visibility:
+            <span class="ok">bottom tray + counter</span>.
+          </p>
+        </div>
+        <div class="controls">
+          <span class="chip"
+            ><span class="muted">Theme</span>
+            <span class="ok">Graphite + Cyan</span></span
+          >
+          <label class="chip" for="dirSel"
+            ><span class="muted">Direction</span>
+            <select id="dirSel" aria-label="Select design direction"></select>
+          </label>
+          <button id="swapBtn" class="primary" type="button">
+            Swap compare
+          </button>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <div class="card-h">
+            <div class="label">Directions (6–8 variations)</div>
+            <div class="meta">Instrument-panel + non-blocking capture</div>
+          </div>
+          <div class="card-b">
+            <div class="dirlist" id="dirList"></div>
+            <div class="divider"></div>
+            <div class="hint">
+              Tip: Pick a direction in the dropdown, then use
+              <span class="kbd">Swap compare</span> to compare two directions
+              side-by-side.
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-h">
+            <div class="label">Compare</div>
+            <div class="meta">Two directions • Same content</div>
+          </div>
+          <div class="card-b">
+            <div class="compare">
+              <div>
+                <div class="small">Left</div>
+                <div class="phone" id="phoneLeft"></div>
+              </div>
+              <div>
+                <div class="small">Right</div>
+                <div class="phone" id="phoneRight"></div>
+              </div>
+            </div>
+            <div class="divider"></div>
+            <div class="small">
+              What to look for: status clarity, queue legibility, review triage
+              speed, density without clutter, and “saved locally” reassurance.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <template id="tpl-screen">
+      <div class="screen">
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="mono">5G • 82%</span>
+        </div>
+        <div class="appbar">
+          <h2></h2>
+          <div class="mini-queue">
+            <span>Processing</span>
+            <span class="mono">U:3 A:5 R:2</span>
+          </div>
+        </div>
+        <div class="content"></div>
+        <div class="tabs">
+          <div class="tab">Dashboard</div>
+          <div class="tab">Queue</div>
+          <div class="tab">Inventory</div>
+          <div class="tab">Settings</div>
+        </div>
+        <div class="fab">Scan <span class="mono">VOL</span></div>
+      </div>
+    </template>
+
+    <template id="tpl-camera">
+      <div class="screen camera">
+        <div class="hud">
+          <div class="queue">
+            <span class="mono">Queue</span>
+            <span class="mono">U:3</span>
+            <span class="mono">A:5</span>
+            <span class="mono">R:2</span>
+          </div>
+          <div class="pill">
+            <span class="dot"></span><span class="mono">Saved locally</span>
+          </div>
+        </div>
+
+        <div class="tray">
+          <div class="tray-row">
+            <div class="subtle">Batch tray</div>
+            <div class="mono">Captured: 12</div>
+          </div>
+          <div class="thumb-strip">
+            <div class="t"></div>
+            <div class="t"></div>
+            <div class="t"></div>
+            <div class="t"></div>
+            <div class="t"></div>
+            <div class="t"></div>
+            <div class="t"></div>
+            <div class="t"></div>
+            <div class="t"></div>
+            <div class="t"></div>
+          </div>
+        </div>
+
+        <div class="shutter" aria-hidden="true"></div>
+        <div class="finish">Finish Batch</div>
+      </div>
+    </template>
+
+    <template id="tpl-queue">
+      <div class="stack">
+        <div class="panel">
+          <div class="hdr">
+            <div class="h">Instrument Panel</div>
+            <div class="r">U:3 • A:5 • R:2 • F:1</div>
+          </div>
+          <div class="tags">
+            <span class="tag">Draft 1</span>
+            <span class="tag">Uploading 3</span>
+            <span class="tag">Analyzing 5</span>
+            <span class="tag accent">Ready 2</span>
+            <span
+              class="tag"
+              style="
+                border-color: rgba(239, 68, 68, 0.35);
+                background: rgba(239, 68, 68, 0.1);
+              "
+              >Failed 1</span
+            >
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="thumb"></div>
+          <div class="fields">
+            <div class="top">
+              <span class="k">Nike</span>
+              <span class="badge"
+                ><span class="b-dot" style="background: var(--st-ready)"></span
+                >Ready</span
+              >
+              <span class="mono">SZ 10 • Used</span>
+            </div>
+            <div class="v">Air Max 97 – Black/White</div>
+            <div class="mono">SKU 8F2A-19C7</div>
+          </div>
+          <div class="btn primary">Review</div>
+        </div>
+
+        <div class="row">
+          <div class="thumb"></div>
+          <div class="fields">
+            <div class="top">
+              <span class="k">Levi’s</span>
+              <span class="badge"
+                ><span
+                  class="b-dot"
+                  style="background: var(--st-analyzing)"
+                ></span
+                >Analyzing</span
+              >
+              <span class="mono">SZ 32 • Good</span>
+            </div>
+            <div class="v">501 Jeans – Indigo</div>
+            <div class="mono">Queue #07</div>
+          </div>
+          <div class="btn">Details</div>
+        </div>
+
+        <div class="row">
+          <div class="thumb"></div>
+          <div class="fields">
+            <div class="top">
+              <span class="k">Patagonia</span>
+              <span class="badge"
+                ><span class="b-dot" style="background: var(--st-failed)"></span
+                >Failed</span
+              >
+              <span class="mono">SZ M • —</span>
+            </div>
+            <div class="v">Better Sweater Jacket</div>
+            <div class="mono">Upload timeout</div>
+          </div>
+          <div class="btn danger">Retry</div>
+        </div>
+      </div>
+    </template>
+
+    <template id="tpl-review">
+      <div class="review">
+        <div class="panel">
+          <div class="hdr">
+            <div class="h">Review (Inbox Zero)</div>
+            <div class="r">Ready 2</div>
+          </div>
+          <div class="subtle">
+            Critical fields first • 1‑tap approve • < 3 taps to fix category
+          </div>
+        </div>
+
+        <div class="row" style="grid-template-columns: 70px 1fr">
+          <div class="thumb" style="width: 70px; height: 70px"></div>
+          <div class="fields">
+            <div class="top">
+              <span class="k">Nike</span>
+              <span class="mono">SZ 10</span>
+              <span class="mono">Used</span>
+            </div>
+            <div class="v">Air Max 97 – Black/White</div>
+            <div class="mono">Category: Sneakers</div>
+          </div>
+        </div>
+
+        <div class="kv">
+          <div class="field">
+            <div class="l">Brand</div>
+            <div class="val">Nike</div>
+          </div>
+          <div class="field">
+            <div class="l">Size</div>
+            <div class="val">10</div>
+          </div>
+          <div class="field">
+            <div class="l">Condition</div>
+            <div class="val">Used</div>
+          </div>
+          <div class="field secondary">
+            <div class="l">Category</div>
+            <div class="val">Sneakers</div>
+          </div>
+        </div>
+
+        <div class="review-actions">
+          <div class="btn primary">Confirm & Next</div>
+          <div class="btn">Edit</div>
+        </div>
+
+        <div class="small">Next up: Levi’s 501 Jeans (Ready)</div>
+      </div>
+    </template>
+
+    <script>
+      const DIRECTIONS = [
+        {
+          id: "d1",
+          name: "D1 – Instrument Panel Minimal",
+          desc: "Clean tabs + mini-queue pill, dense list cards, subtle cyan for primary only.",
+          tags: ["status clarity", "dense", "calm"],
+          tweaks: {
+            radius: 10,
+            borderStrong: 0.9,
+            cardDensity: "dense",
+            queueStyle: "pill",
+            badgeStyle: "dot",
+          },
+        },
+        {
+          id: "d2",
+          name: "D2 – Badge-First Conveyor",
+          desc: "Bolder status badges, stronger separators, more explicit queue counts and failure actions.",
+          tags: ["instrument", "actionable failures", "explicit"],
+          tweaks: {
+            radius: 8,
+            borderStrong: 1.0,
+            cardDensity: "dense",
+            queueStyle: "pill",
+            badgeStyle: "label",
+          },
+        },
+        {
+          id: "d3",
+          name: "D3 – Ultra-Dense Shopify",
+          desc: "Maximum density; scan lanes tightened; numbers (mono) feel like an ops dashboard.",
+          tags: ["max density", "scan lanes", "mono"],
+          tweaks: {
+            radius: 8,
+            borderStrong: 1.0,
+            cardDensity: "ultra",
+            queueStyle: "bar",
+            badgeStyle: "dot",
+          },
+        },
+        {
+          id: "d4",
+          name: "D4 – Superhuman Triage",
+          desc: "Review-first emphasis; ‘Confirm & Next’ dominates; edit is secondary and inline-minded.",
+          tags: ["triage", "review-first", "thumb-speed"],
+          tweaks: {
+            radius: 12,
+            borderStrong: 0.85,
+            cardDensity: "dense",
+            queueStyle: "pill",
+            badgeStyle: "dot",
+            reviewWeight: "heavy",
+          },
+        },
+        {
+          id: "d5",
+          name: "D5 – Photos-First Trust",
+          desc: "Stronger ‘Saved locally’ reassurance and tray visibility; capture UI foregrounds safety and rhythm.",
+          tags: ["offline trust", "capture", "reassurance"],
+          tweaks: {
+            radius: 12,
+            borderStrong: 0.85,
+            cardDensity: "dense",
+            queueStyle: "pill",
+            badgeStyle: "dot",
+            trustEmphasis: true,
+          },
+        },
+        {
+          id: "d6",
+          name: "D6 – Status Rail",
+          desc: "Persistent mini-queue becomes a top rail across screens; strong ‘machine running’ feel.",
+          tags: ["always-visible queue", "instrument", "predictable"],
+          tweaks: {
+            radius: 10,
+            borderStrong: 1.0,
+            cardDensity: "dense",
+            queueStyle: "rail",
+            badgeStyle: "dot",
+          },
+        },
+        {
+          id: "d7",
+          name: "D7 – Cyan-Edge Highlights",
+          desc: "Cyan used sparingly to highlight primary path; edges + focus rings emphasize speed and control.",
+          tags: ["accent discipline", "focus", "fast"],
+          tweaks: {
+            radius: 10,
+            borderStrong: 0.9,
+            cardDensity: "dense",
+            queueStyle: "pill",
+            badgeStyle: "dot",
+            accentEdges: true,
+          },
+        },
+      ];
+
+      const SAMPLE = {
+        queue: { uploading: 3, analyzing: 5, ready: 2, failed: 1 },
+        device: { time: "9:41", net: "5G", battery: 82 },
+      };
+
+      const dirSel = document.getElementById("dirSel");
+      const dirList = document.getElementById("dirList");
+      const phoneLeft = document.getElementById("phoneLeft");
+      const phoneRight = document.getElementById("phoneRight");
+      const swapBtn = document.getElementById("swapBtn");
+
+      function el(tag, attrs = {}, children = []) {
+        const node = document.createElement(tag);
+        Object.entries(attrs).forEach(([k, v]) => {
+          if (k === "class") node.className = v;
+          else if (k.startsWith("on") && typeof v === "function")
+            node.addEventListener(k.substring(2), v);
+          else node.setAttribute(k, v);
+        });
+        children.forEach((c) =>
+          node.appendChild(
+            typeof c === "string" ? document.createTextNode(c) : c,
+          ),
+        );
+        return node;
+      }
+
+      function renderDirectionList() {
+        dirList.innerHTML = "";
+        DIRECTIONS.forEach((d, i) => {
+          const top = el("div", { class: "top" }, [
+            el("div", { class: "name" }, [`${d.name}`]),
+            el("div", { class: "mono" }, [
+              `#${(i + 1).toString().padStart(2, "0")}`,
+            ]),
+          ]);
+          const tags = el(
+            "div",
+            { class: "tags" },
+            d.tags.map((t) =>
+              el(
+                "span",
+                {
+                  class: `tag${t.includes("queue") || t.includes("instrument") ? " accent" : ""}`,
+                },
+                [t],
+              ),
+            ),
+          );
+          const item = el("div", { class: "diritem" }, [
+            top,
+            el("div", { class: "desc" }, [d.desc]),
+            tags,
+          ]);
+          dirList.appendChild(item);
+        });
+      }
+
+      function fillSelect() {
+        DIRECTIONS.forEach((d) => {
+          dirSel.appendChild(el("option", { value: d.id }, [d.name]));
+        });
+      }
+
+      function cloneTpl(id) {
+        return document
+          .getElementById(id)
+          .content.firstElementChild.cloneNode(true);
+      }
+
+      function applyTweaks(screen, dir, whichTab = "Dashboard") {
+        // Set active tab
+        const tabs = [...screen.querySelectorAll(".tab")];
+        tabs.forEach((t) => t.classList.remove("active"));
+        const idx =
+          { Dashboard: 0, Queue: 1, Inventory: 2, Settings: 3 }[whichTab] ?? 0;
+        tabs[idx].classList.add("active");
+
+        // Corner radius
+        const r = dir.tweaks.radius ?? 10;
+        screen.style.setProperty("--r", `${r}px`);
+
+        // Borders / density adjustments
+        const density = dir.tweaks.cardDensity;
+        const rows = screen.querySelectorAll(".row");
+        rows.forEach((row) => {
+          if (density === "ultra") {
+            row.style.padding = "8px";
+            row.style.gridTemplateColumns = "48px 1fr auto";
+          } else {
+            row.style.padding = "10px";
+          }
+        });
+
+        // Mini-queue style variants
+        const mq = screen.querySelector(".mini-queue");
+        if (mq) {
+          if (dir.tweaks.queueStyle === "rail") {
+            mq.style.borderRadius = "10px";
+            mq.style.padding = "8px 10px";
+            mq.style.borderColor = "rgba(42,54,68,0.95)";
+            mq.style.background = "rgba(24,33,43,0.65)";
+          }
+          if (dir.tweaks.queueStyle === "bar") {
+            mq.style.borderRadius = "999px";
+            mq.style.borderColor = "rgba(42,54,68,0.95)";
+            mq.style.background = "rgba(17,22,28,0.60)";
+          }
+        }
+
+        // Badge style variants
+        if (dir.tweaks.badgeStyle === "label") {
+          screen.querySelectorAll(".badge").forEach((b) => {
+            b.style.borderRadius = "10px";
+            b.style.padding = "5px 8px";
+            b.style.background = "rgba(24,33,43,0.72)";
+            b.style.borderColor = "rgba(52,211,255,0.20)";
+          });
+        }
+
+        // Accent edges option
+        if (dir.tweaks.accentEdges) {
+          screen.querySelectorAll(".row").forEach((row, i) => {
+            if (i === 0) {
+              row.style.borderColor = "rgba(52,211,255,0.26)";
+              row.style.boxShadow = "0 0 0 2px rgba(52,211,255,0.06)";
+            }
+          });
+        }
+      }
+
+      function buildScreenForDirection(dir, scenario) {
+        // scenario: dashboard | queue | camera | review
+        if (scenario === "camera") {
+          const cam = cloneTpl("tpl-camera");
+          if (dir.tweaks.trustEmphasis) {
+            // Make "Saved locally" more prominent
+            const pill = cam.querySelector(".pill");
+            pill.style.borderColor = "rgba(52,211,255,0.30)";
+            pill.style.background = "rgba(52,211,255,0.10)";
+          }
+          return cam;
+        }
+
+        const screen = cloneTpl("tpl-screen");
+        const title = screen.querySelector("h2");
+        const content = screen.querySelector(".content");
+
+        if (scenario === "dashboard") {
+          title.textContent = "Dashboard";
+          content.appendChild(
+            el("div", { class: "stack" }, [
+              el("div", { class: "panel" }, [
+                el("div", { class: "hdr" }, [
+                  el("div", { class: "h" }, ["Quick Start"]),
+                  el("div", { class: "r" }, ["Burst-Capture"]),
+                ]),
+                el("div", { class: "subtle" }, [
+                  "Scan your whole haul at once. We’ll process in the background.",
+                ]),
+              ]),
+              el("div", { class: "panel" }, [
+                el("div", { class: "hdr" }, [
+                  el("div", { class: "h" }, ["Today"]),
+                  el("div", { class: "r" }, ["Queue U:3 A:5 R:2"]),
+                ]),
+                el("div", { class: "tags" }, [
+                  el("span", { class: "tag" }, ["Draft 1"]),
+                  el("span", { class: "tag" }, ["Uploading 3"]),
+                  el("span", { class: "tag" }, ["Analyzing 5"]),
+                  el("span", { class: "tag accent" }, ["Ready 2"]),
+                ]),
+              ]),
+            ]),
+          );
+          applyTweaks(screen, dir, "Dashboard");
+          return screen;
+        }
+
+        if (scenario === "queue") {
+          title.textContent = "Queue";
+          content.appendChild(cloneTpl("tpl-queue"));
+          applyTweaks(screen, dir, "Queue");
+          return screen;
+        }
+
+        if (scenario === "review") {
+          title.textContent = "Review";
+          content.appendChild(cloneTpl("tpl-review"));
+          applyTweaks(screen, dir, "Queue");
+          // Make CTA heavier in triage direction
+          if (dir.tweaks.reviewWeight === "heavy") {
+            const cta = screen.querySelector(".review-actions .btn.primary");
+            cta.style.padding = "14px 10px";
+            cta.style.borderColor = "rgba(52,211,255,0.45)";
+            cta.style.background = "rgba(52,211,255,0.14)";
+          }
+          return screen;
+        }
+
+        // default
+        title.textContent = "Dashboard";
+        applyTweaks(screen, dir, "Dashboard");
+        return screen;
+      }
+
+      function renderPhones(selectedId) {
+        const leftDir =
+          DIRECTIONS.find((d) => d.id === selectedId) ?? DIRECTIONS[0];
+        const rightDir =
+          DIRECTIONS.find((d) => d.id !== selectedId) ?? DIRECTIONS[1];
+
+        phoneLeft.innerHTML = "";
+        phoneRight.innerHTML = "";
+
+        // Each phone shows: Dashboard and either Camera/Queue/Review stacked as pages
+        // We'll show a single screen at a time, but different scenario per side to convey breadth.
+        const left = buildScreenForDirection(leftDir, "dashboard");
+        const right = buildScreenForDirection(rightDir, "queue");
+
+        // Mount into phone shells
+        phoneLeft.appendChild(left);
+        phoneRight.appendChild(right);
+
+        // Add quick scenario switchers
+        const leftShell = phoneLeft;
+        const rightShell = phoneRight;
+
+        const leftSwitch = el(
+          "div",
+          {
+            class: "controls",
+            style: "margin-top: 10px; justify-content: center;",
+          },
+          [
+            el(
+              "button",
+              {
+                type: "button",
+                onClick: () => {
+                  leftShell.innerHTML = "";
+                  leftShell.appendChild(
+                    buildScreenForDirection(leftDir, "dashboard"),
+                  );
+                },
+              },
+              ["Dashboard"],
+            ),
+            el(
+              "button",
+              {
+                type: "button",
+                onClick: () => {
+                  leftShell.innerHTML = "";
+                  leftShell.appendChild(
+                    buildScreenForDirection(leftDir, "camera"),
+                  );
+                },
+              },
+              ["Capture"],
+            ),
+            el(
+              "button",
+              {
+                type: "button",
+                onClick: () => {
+                  leftShell.innerHTML = "";
+                  leftShell.appendChild(
+                    buildScreenForDirection(leftDir, "queue"),
+                  );
+                },
+              },
+              ["Queue"],
+            ),
+            el(
+              "button",
+              {
+                type: "button",
+                onClick: () => {
+                  leftShell.innerHTML = "";
+                  leftShell.appendChild(
+                    buildScreenForDirection(leftDir, "review"),
+                  );
+                },
+              },
+              ["Review"],
+            ),
+          ],
+        );
+
+        const rightSwitch = el(
+          "div",
+          {
+            class: "controls",
+            style: "margin-top: 10px; justify-content: center;",
+          },
+          [
+            el(
+              "button",
+              {
+                type: "button",
+                onClick: () => {
+                  rightShell.innerHTML = "";
+                  rightShell.appendChild(
+                    buildScreenForDirection(rightDir, "dashboard"),
+                  );
+                },
+              },
+              ["Dashboard"],
+            ),
+            el(
+              "button",
+              {
+                type: "button",
+                onClick: () => {
+                  rightShell.innerHTML = "";
+                  rightShell.appendChild(
+                    buildScreenForDirection(rightDir, "camera"),
+                  );
+                },
+              },
+              ["Capture"],
+            ),
+            el(
+              "button",
+              {
+                type: "button",
+                onClick: () => {
+                  rightShell.innerHTML = "";
+                  rightShell.appendChild(
+                    buildScreenForDirection(rightDir, "queue"),
+                  );
+                },
+              },
+              ["Queue"],
+            ),
+            el(
+              "button",
+              {
+                type: "button",
+                onClick: () => {
+                  rightShell.innerHTML = "";
+                  rightShell.appendChild(
+                    buildScreenForDirection(rightDir, "review"),
+                  );
+                },
+              },
+              ["Review"],
+            ),
+          ],
+        );
+
+        // Append switches below each phone mock
+        phoneLeft.parentElement.appendChild(leftSwitch);
+        phoneRight.parentElement.appendChild(rightSwitch);
+
+        // Remove duplicate switches if re-rendering
+        const all = document.querySelectorAll("[data-switch]");
+        all.forEach((n) => n.remove());
+        leftSwitch.setAttribute("data-switch", "1");
+        rightSwitch.setAttribute("data-switch", "1");
+      }
+
+      function swapCompare() {
+        const cur = dirSel.value;
+        // pick next direction as selected, causing a different right-hand compare
+        const idx = DIRECTIONS.findIndex((d) => d.id === cur);
+        const next = DIRECTIONS[(idx + 1) % DIRECTIONS.length].id;
+        dirSel.value = next;
+        refresh();
+      }
+
+      function refresh() {
+        // Clean old switches
+        document.querySelectorAll("[data-switch]").forEach((n) => n.remove());
+        renderPhones(dirSel.value);
+      }
+
+      fillSelect();
+      renderDirectionList();
+      dirSel.value = DIRECTIONS[0].id;
+      refresh();
+
+      dirSel.addEventListener("change", refresh);
+      swapBtn.addEventListener("click", swapCompare);
+    </script>
+  </body>
+</html>
