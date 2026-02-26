@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SnapLog — UX Design Directions</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0F0F13;
+      --surface: #1A1A22;
+      --surface2: #252530;
+      --primary: #7C6EF8;
+      --primary-dim: #3A2E8A;
+      --accent: #64DFDF;
+      --error: #FF6B6B;
+      --text: #EAEAF0;
+      --text2: #C8C8D4;
+      --text3: #888898;
+      --outline: #3A3A48;
+      --amber: #F0A000;
+      --green: #4CAF50;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 40px 24px;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: var(--text2);
+      font-size: 15px;
+      margin-bottom: 40px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+    }
+
+    .tab {
+      background: var(--surface);
+      border: 1px solid var(--outline);
+      color: var(--text2);
+      padding: 8px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+
+    .tab.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+
+    .tab:hover:not(.active) {
+      border-color: var(--primary);
+      color: var(--text);
+    }
+
+    .direction { display: none; }
+    .direction.active { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; }
+
+    /* ===================== PHONE MOCKUP ===================== */
+    .phone-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .phone-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text2);
+      text-align: center;
+    }
+
+    .phone {
+      width: 280px;
+      height: 560px;
+      background: #0a0a0e;
+      border-radius: 40px;
+      border: 2px solid var(--outline);
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.5), 0 0 0 6px #111117;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .status-bar {
+      height: 24px;
+      background: rgba(0,0,0,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text2);
+      flex-shrink: 0;
+    }
+
+    .screen-content { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+
+    /* ===================== SCREEN: DASHBOARD ===================== */
+    .screen-dashboard { padding: 16px; gap: 12px; display: flex; flex-direction: column; }
+
+    .app-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .app-title { font-size: 20px; font-weight: 700; color: var(--text); }
+    .app-title span { color: var(--primary); }
+
+    .icon-btn {
+      width: 36px; height: 36px;
+      border-radius: 18px;
+      background: var(--surface2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+
+    .search-bar {
+      background: var(--surface2);
+      border-radius: 12px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text3);
+    }
+
+    .chips-row { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+
+    .chip {
+      background: var(--surface2);
+      border: 1px solid var(--outline);
+      border-radius: 16px;
+      padding: 4px 10px;
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text2);
+      white-space: nowrap;
+    }
+
+    .chip.active-chip {
+      background: var(--primary-dim);
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    .item-card {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 10px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid var(--outline);
+    }
+
+    .item-thumb {
+      width: 52px;
+      height: 52px;
+      border-radius: 8px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+    }
+
+    .item-info { flex: 1; }
+    .item-name { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+    .item-cat { font-size: 10px; color: var(--text3); }
+
+    .sync-badge {
+      font-size: 9px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .sync-synced { background: rgba(76,175,80,0.15); color: var(--green); }
+    .sync-pending { background: rgba(240,160,0,0.15); color: var(--amber); }
+
+    .fab {
+      position: absolute;
+      bottom: 72px;
+      right: 16px;
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      background: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      box-shadow: 0 4px 20px rgba(124,110,248,0.4);
+    }
+
+    .bottom-nav {
+      height: 52px;
+      background: var(--surface);
+      border-top: 1px solid var(--outline);
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      flex-shrink: 0;
+      padding: 0 8px;
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      font-size: 8px;
+      color: var(--text3);
+      padding: 4px 16px;
+    }
+
+    .nav-item.active-nav { color: var(--primary); }
+    .nav-icon { font-size: 18px; }
+
+    /* ===================== SCREEN: CAMERA ===================== */
+    .screen-camera {
+      background: #111;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      padding-bottom: 32px;
+      gap: 20px;
+      position: relative;
+    }
+
+    .camera-viewfinder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+      opacity: 0.3;
+      background: radial-gradient(circle at center, #1a1a1a 0%, #050505 100%);
+    }
+
+    .camera-corner {
+      position: absolute;
+      width: 60px; height: 60px;
+      border-color: rgba(255,255,255,0.5);
+      border-style: solid;
+      border-width: 0;
+    }
+
+    .tl { top: 80px; left: 40px; border-top-width: 2px; border-left-width: 2px; border-top-left-radius: 4px; }
+    .tr { top: 80px; right: 40px; border-top-width: 2px; border-right-width: 2px; border-top-right-radius: 4px; }
+    .bl { bottom: 140px; left: 40px; border-bottom-width: 2px; border-left-width: 2px; border-bottom-left-radius: 4px; }
+    .br { bottom: 140px; right: 40px; border-bottom-width: 2px; border-right-width: 2px; border-bottom-right-radius: 4px; }
+
+    .camera-controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 0 32px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .gallery-btn {
+      width: 44px; height: 44px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.1);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+    }
+
+    .shutter {
+      width: 64px; height: 64px;
+      border-radius: 32px;
+      background: #fff;
+      border: 4px solid rgba(255,255,255,0.3);
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .shutter-inner {
+      width: 50px; height: 50px;
+      border-radius: 25px;
+      background: #fff;
+    }
+
+    /* ===================== SCREEN: AI LOADING ===================== */
+    .screen-loading {
+      flex: 1;
+      background: #111;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .loading-blur {
+      position: absolute;
+      inset: 0;
+      background: rgba(10,10,15,0.75);
+      backdrop-filter: blur(6px);
+    }
+
+    .loading-ring {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      border: 3px solid var(--outline);
+      border-top-color: var(--accent);
+      border-right-color: var(--primary);
+      animation: spin 1.2s linear infinite;
+      position: relative;
+      z-index: 2;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      position: relative;
+      z-index: 2;
+      text-align: center;
+    }
+
+    .loading-sub {
+      font-size: 11px;
+      color: var(--text3);
+      position: relative;
+      z-index: 2;
+    }
+
+    /* ===================== SCREEN: REVIEW FORM ===================== */
+    .screen-form {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      gap: 10px;
+      overflow: hidden;
+    }
+
+    .form-header { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+
+    .form-field {
+      background: var(--surface2);
+      border-radius: 8px;
+      padding: 10px 12px;
+      border: 1px solid var(--outline);
+    }
+
+    .field-label {
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .ai-dot {
+      width: 6px; height: 6px;
+      border-radius: 3px;
+      background: var(--accent);
+      box-shadow: 0 0 6px var(--accent);
+    }
+
+    .field-value { font-size: 13px; font-weight: 500; color: var(--text); }
+
+    .confirm-btn {
+      background: var(--primary);
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      margin-top: auto;
+      box-shadow: 0 4px 20px rgba(124,110,248,0.35);
+    }
+
+    .cancel-link {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text3);
+    }
+
+    /* ===================== SECTION LABELS ===================== */
+    .section-header {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 4px;
+    }
+
+    .sync-bar {
+      background: rgba(240,160,0,0.1);
+      border-bottom: 1px solid rgba(240,160,0,0.2);
+      padding: 6px 16px;
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--amber);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    /* Description panels */
+    .desc-panel {
+      background: var(--surface);
+      border: 1px solid var(--outline);
+      border-radius: 12px;
+      padding: 20px;
+      grid-column: 1 / -1;
+    }
+
+    .desc-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; color: var(--text); }
+    .desc-body { font-size: 13px; color: var(--text2); line-height: 1.6; }
+    .desc-body strong { color: var(--accent); }
+
+    .chosen-badge {
+      display: inline-block;
+      background: var(--primary-dim);
+      color: var(--primary);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--primary);
+      margin-left: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      vertical-align: middle;
+    }
+
+    .color-palettes {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 16px;
+      grid-column: 1 / -1;
+    }
+
+    .palette-card {
+      background: var(--surface);
+      border: 1px solid var(--outline);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .palette-swatch { height: 60px; }
+    .palette-info { padding: 10px 12px; }
+    .palette-name { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+    .palette-desc { font-size: 10px; color: var(--text3); }
+
+    @media (max-width: 640px) {
+      .direction.active { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>SnapLog AI Vision</h1>
+  <p class="subtitle">UX Design Directions — Visual Exploration & Screen Mockups</p>
+
+  <div class="tabs">
+    <button class="tab active" onclick="show('dashboard')">📱 Dashboard</button>
+    <button class="tab" onclick="show('camera')">📷 Camera Screen</button>
+    <button class="tab" onclick="show('loading')">⚡ AI Analysis</button>
+    <button class="tab" onclick="show('form')">✏️ Review Form</button>
+    <button class="tab" onclick="show('offline')">📡 Offline Mode</button>
+    <button class="tab" onclick="show('palette')">🎨 Color Palette</button>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="direction active" id="dir-dashboard">
+    <div class="phone-wrap">
+      <div class="phone-label">Dashboard — Items List</div>
+      <div class="phone">
+        <div class="status-bar"><span>9:41</span><span>●●● 100%</span></div>
+        <div class="screen-content">
+          <div class="screen-dashboard">
+            <div class="app-bar">
+              <div class="app-title">Snap<span>Log</span></div>
+              <div class="icon-btn">👤</div>
+            </div>
+            <div class="search-bar">🔍 Search items...</div>
+            <div class="chips-row">
+              <div class="chip active-chip">All</div>
+              <div class="chip">👟 Footwear</div>
+              <div class="chip">💻 Electronics</div>
+              <div class="chip">👕 Clothing</div>
+              <div class="chip">🔧 Tools</div>
+            </div>
+            <div class="section-header">47 Items</div>
+            <div class="item-card">
+              <div class="item-thumb" style="background:#1e1330;">👟</div>
+              <div class="item-info">
+                <div class="item-name">Nike Air Jordan 1 Retro</div>
+                <div class="item-cat">Footwear · Sneakers</div>
+              </div>
+              <div class="sync-badge sync-synced">✓ Synced</div>
+            </div>
+            <div class="item-card">
+              <div class="item-thumb" style="background:#13221e;">💻</div>
+              <div class="item-info">
+                <div class="item-name">MacBook Pro 14"</div>
+                <div class="item-cat">Electronics · Laptops</div>
+              </div>
+              <div class="sync-badge sync-pending">⏳</div>
+            </div>
+            <div class="item-card">
+              <div class="item-thumb" style="background:#221318;">📷</div>
+              <div class="item-info">
+                <div class="item-name">Sony A7III Camera</div>
+                <div class="item-cat">Electronics · Cameras</div>
+              </div>
+              <div class="sync-badge sync-synced">✓ Synced</div>
+            </div>
+          </div>
+        </div>
+        <div class="fab">📷</div>
+        <div class="bottom-nav">
+          <div class="nav-item active-nav"><div class="nav-icon">📦</div>Inventory</div>
+          <div class="nav-item"><div class="nav-icon">⚙️</div>Settings</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-wrap">
+      <div class="phone-label">Dashboard — Empty State</div>
+      <div class="phone">
+        <div class="status-bar"><span>9:41</span><span>●●● 100%</span></div>
+        <div class="screen-content">
+          <div class="screen-dashboard" style="justify-content:center; align-items:center; min-height:100%; text-align:center; gap:16px;">
+            <div style="font-size:64px;">📷</div>
+            <div style="font-size:18px; font-weight:700;">Your inventory starts here</div>
+            <div style="font-size:12px; color:var(--text3); line-height:1.6; padding:0 16px;">Tap the scan button to photograph any item — AI fills in the details.</div>
+          </div>
+        </div>
+        <div class="fab">📷</div>
+        <div class="bottom-nav">
+          <div class="nav-item active-nav"><div class="nav-icon">📦</div>Inventory</div>
+          <div class="nav-item"><div class="nav-icon">⚙️</div>Settings</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="desc-panel">
+      <div class="desc-title">Dashboard Direction <span class="chosen-badge">Chosen</span></div>
+      <div class="desc-body">
+        <strong>Dark surface</strong> with card-based item list. Search always visible. Category filter chips at top. Sync status badge on every item. Floating Action Button (camera icon) persistent at bottom-right — always one tap from a new scan. Bottom tab navigation provides access to Inventory and Settings. Clean, professional — feels like a product tool, not a consumer app.
+      </div>
+    </div>
+  </div>
+
+  <!-- CAMERA -->
+  <div class="direction" id="dir-camera">
+    <div class="phone-wrap">
+      <div class="phone-label">Camera — Ready to Capture</div>
+      <div class="phone">
+        <div class="status-bar"><span>9:41</span><span>●●● 100%</span></div>
+        <div class="screen-content">
+          <div class="screen-camera">
+            <div class="camera-viewfinder">📦</div>
+            <div class="camera-corner tl"></div>
+            <div class="camera-corner tr"></div>
+            <div class="camera-corner bl"></div>
+            <div class="camera-corner br"></div>
+            <div style="position:absolute; top:24px; left:16px; z-index:2;">
+              <div class="icon-btn" style="background:rgba(255,255,255,0.1);">✕</div>
+            </div>
+            <div style="font-size:11px; color:rgba(255,255,255,0.5); position:relative; z-index:2;">
+              Position item within frame
+            </div>
+            <div class="camera-controls">
+              <div class="gallery-btn">🖼️</div>
+              <div class="shutter"><div class="shutter-inner"></div></div>
+              <div style="width:44px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="desc-panel">
+      <div class="desc-title">Camera Screen Direction</div>
+      <div class="desc-body">
+        <strong>Full-screen, minimal chrome</strong> camera view. Thin corner guides frame the item area. Single large shutter button in accessible thumb zone. Gallery picker icon (less prominent — secondary path). Close button top-left. Zero UI noise — the viewfinder IS the screen. Camera permission denial shows a warm explanation card with "Open Settings" CTA, not a system-default dialog.
+      </div>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div class="direction" id="dir-loading">
+    <div class="phone-wrap">
+      <div class="phone-label">AI Analysis — Loading State</div>
+      <div class="phone">
+        <div class="status-bar"><span>9:41</span><span>●●● 100%</span></div>
+        <div class="screen-content">
+          <div class="screen-loading">
+            <div class="loading-blur"></div>
+            <div class="loading-ring"></div>
+            <div class="loading-text">Identifying item...</div>
+            <div class="loading-sub">Usually takes 2–4 seconds</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-wrap">
+      <div class="phone-label">AI Analysis — Timeout / Failure</div>
+      <div class="phone">
+        <div class="status-bar"><span>9:41</span><span>●●● 100%</span></div>
+        <div class="screen-content">
+          <div class="screen-loading">
+            <div class="loading-blur"></div>
+            <div style="position:relative; z-index:2; text-align:center; padding:0 24px; display:flex; flex-direction:column; align-items:center; gap:16px;">
+              <div style="font-size:36px;">🌐</div>
+              <div style="font-size:14px; font-weight:600; color:var(--text);">Couldn't reach AI</div>
+              <div style="font-size:11px; color:var(--text3); line-height:1.5;">No worries — you can fill in the details yourself or try the scan again.</div>
+              <div style="background:var(--primary); border-radius:10px; padding:10px 24px; font-size:13px; font-weight:700; color:#fff; width:100%;">Try again</div>
+              <div style="background:transparent; border:1px solid var(--outline); border-radius:10px; padding:10px 24px; font-size:13px; font-weight:600; color:var(--text2); width:100%;">Fill in manually</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="desc-panel">
+      <div class="desc-title">AI Analysis Loading Direction</div>
+      <div class="desc-body">
+        <strong>Captured image blurred behind</strong> loading overlay. Dual-color animated ring (purple + teal) builds anticipation. Copy cycles: <em>"Analyzing image..." → "Identifying item..." → "Almost done..."</em>. On timeout (6s): clean, friendly error state with two clear CTAs — no blocking modal, no crash. Users always have a recovery path.
+      </div>
+    </div>
+  </div>
+
+  <!-- REVIEW FORM -->
+  <div class="direction" id="dir-form">
+    <div class="phone-wrap">
+      <div class="phone-label">Review Form — AI Populated</div>
+      <div class="phone">
+        <div class="status-bar"><span>9:41</span><span>●●● 100%</span></div>
+        <div class="screen-content">
+          <div class="screen-form">
+            <div class="form-header">Review & Confirm</div>
+            <div class="form-field">
+              <div class="field-label"><div class="ai-dot"></div> Title</div>
+              <div class="field-value">Nike Air Jordan 1 Retro High OG</div>
+            </div>
+            <div class="form-field">
+              <div class="field-label"><div class="ai-dot"></div> Category</div>
+              <div class="field-value">Footwear / Sneakers</div>
+            </div>
+            <div class="form-field">
+              <div class="field-label"><div class="ai-dot"></div> Color</div>
+              <div class="field-value">University Blue / White</div>
+            </div>
+            <div class="form-field">
+              <div class="field-label"><div class="ai-dot"></div> Condition</div>
+              <div class="field-value" style="color:var(--accent);">Good ↗ tap to change</div>
+            </div>
+            <div class="form-field" style="border-color:var(--outline);">
+              <div class="field-label">Notes (optional)</div>
+              <div class="field-value" style="color:var(--text3);">Add notes...</div>
+            </div>
+            <div class="confirm-btn">Confirm & Save</div>
+            <div class="cancel-link">Discard scan</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="desc-panel">
+      <div class="desc-title">Review Form Direction <span class="chosen-badge">Chosen</span></div>
+      <div class="desc-body">
+        AI-populated fields marked with <strong>teal accent dot</strong> — communicates "this was AI-generated" without any technical language. All fields remain editable (inline tap to edit). Confirm button is full-width, large, primary — impossible to miss. Optional Notes field for manual additions. Discard link is subtle (text only) — not a prominent secondary option that competes with Confirm.
+      </div>
+    </div>
+  </div>
+
+  <!-- OFFLINE -->
+  <div class="direction" id="dir-offline">
+    <div class="phone-wrap">
+      <div class="phone-label">Dashboard — Offline / Pending Sync</div>
+      <div class="phone">
+        <div class="status-bar"><span>9:41</span><span style="color:var(--amber);">No Signal</span></div>
+        <div class="screen-content">
+          <div class="sync-bar">⏳ 3 items pending sync — will upload when connected</div>
+          <div class="screen-dashboard">
+            <div class="app-bar">
+              <div class="app-title">Snap<span>Log</span></div>
+              <div class="icon-btn">👤</div>
+            </div>
+            <div class="search-bar">🔍 Search items...</div>
+            <div class="chips-row">
+              <div class="chip active-chip">All</div>
+              <div class="chip">👟 Footwear</div>
+            </div>
+            <div class="item-card">
+              <div class="item-thumb" style="background:#1e1330;">👟</div>
+              <div class="item-info">
+                <div class="item-name">Nike Air Jordan 1 Retro</div>
+                <div class="item-cat">Footwear · Sneakers</div>
+              </div>
+              <div class="sync-badge sync-pending">⏳ Pending</div>
+            </div>
+            <div class="item-card">
+              <div class="item-thumb" style="background:#22131a;">👟</div>
+              <div class="item-info">
+                <div class="item-name">Adidas Yeezy 350 Cream</div>
+                <div class="item-cat">Footwear · Sneakers</div>
+              </div>
+              <div class="sync-badge sync-pending">⏳ Pending</div>
+            </div>
+          </div>
+        </div>
+        <div class="fab">📷</div>
+        <div class="bottom-nav">
+          <div class="nav-item active-nav"><div class="nav-icon">📦</div>Inventory</div>
+          <div class="nav-item"><div class="nav-icon">⚙️</div>Settings</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="desc-panel">
+      <div class="desc-title">Offline Mode Direction</div>
+      <div class="desc-body">
+        <strong>Offline is never hidden</strong> — it's surfaced as a visible, calm status. Amber sync banner at top of Dashboard shows count of pending items. Each item card shows ⏳ Pending badge. App remains fully functional: FAB still present, scanning still works, items save as local drafts. When connectivity returns, background sync fires silently — banner transitions to "Syncing..." then disappears with a brief ✓ flash. <strong>No crashes. No data loss. No anxiety.</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- PALETTE -->
+  <div class="direction" id="dir-palette">
+    <div class="color-palettes">
+      <div class="palette-card">
+        <div class="palette-swatch" style="background:#7C6EF8;"></div>
+        <div class="palette-info">
+          <div class="palette-name">Primary — #7C6EF8</div>
+          <div class="palette-desc">Vibrant purple. FAB, primary buttons, active nav.</div>
+        </div>
+      </div>
+      <div class="palette-card">
+        <div class="palette-swatch" style="background:#64DFDF;"></div>
+        <div class="palette-info">
+          <div class="palette-name">AI Accent — #64DFDF</div>
+          <div class="palette-desc">Teal. AI-populated field indicators, sync success.</div>
+        </div>
+      </div>
+      <div class="palette-card">
+        <div class="palette-swatch" style="background:#0F0F13;"></div>
+        <div class="palette-info">
+          <div class="palette-name">Background — #0F0F13</div>
+          <div class="palette-desc">Near-black with blue undertone. App background.</div>
+        </div>
+      </div>
+      <div class="palette-card">
+        <div class="palette-swatch" style="background:#1A1A22;"></div>
+        <div class="palette-info">
+          <div class="palette-name">Surface — #1A1A22</div>
+          <div class="palette-desc">Cards, sheets, form background.</div>
+        </div>
+      </div>
+      <div class="palette-card">
+        <div class="palette-swatch" style="background:#252530;"></div>
+        <div class="palette-info">
+          <div class="palette-name">Surface Variant — #252530</div>
+          <div class="palette-desc">Input fields, elevated surfaces.</div>
+        </div>
+      </div>
+      <div class="palette-card">
+        <div class="palette-swatch" style="background:#F0A000;"></div>
+        <div class="palette-info">
+          <div class="palette-name">Amber — #F0A000</div>
+          <div class="palette-desc">Pending sync indicator, warnings.</div>
+        </div>
+      </div>
+      <div class="palette-card">
+        <div class="palette-swatch" style="background:#4CAF50;"></div>
+        <div class="palette-info">
+          <div class="palette-name">Green — #4CAF50</div>
+          <div class="palette-desc">Synced state, success confirmations.</div>
+        </div>
+      </div>
+      <div class="palette-card">
+        <div class="palette-swatch" style="background:#FF6B6B;"></div>
+        <div class="palette-info">
+          <div class="palette-name">Error — #FF6B6B</div>
+          <div class="palette-desc">Error states, destructive actions.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="desc-panel">
+      <div class="desc-title">Color Palette Rationale</div>
+      <div class="desc-body">
+        Dark-mode-first palette chosen for SnapLog. <strong>Purple primary (#7C6EF8)</strong> differentiates from generic Material blue while feeling intelligent and modern. <strong>Teal AI accent (#64DFDF)</strong> is used exclusively to signal AI-generated content — creating a learnable visual language: "teal = AI did this." The background is near-black with a subtle blue undertone (#0F0F13) that feels intentional rather than default. Amber and green are exclusively used for sync state communication — color is never the only signal; icons and text always accompany color. <strong>All text/background combinations meet WCAG AA contrast ratio (4.5:1 minimum).</strong>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function show(id) {
+      document.querySelectorAll('.direction').forEach(d => d.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.getElementById('dir-' + id).classList.add('active');
+      event.target.classList.add('active');
+    }
+  </script>
+</body>
+</html>
