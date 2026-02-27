@@ -1,0 +1,12 @@
+export const MAX_IMAGE_SIZE_BYTES = 500_000;
+export const MAX_IMAGE_DIMENSION = 1280;
+export const AI_TIMEOUT_MS = 6000;
+export const AI_LOADING_COPY_INTERVAL_MS = 1500;
+export const MAX_AI_RETRIES = 2;
+export const RETRY_BASE_DELAY_MS = 1000;
+export const RATE_LIMIT_PER_HOUR = 20;
+export const SEARCH_DEBOUNCE_MS = 300;
+export const SNACKBAR_DURATION_MS = 3000;
+export const ITEM_THUMBNAIL_SIZE = 72;
+export const MIN_TOUCH_TARGET = 44;
+export const SHUTTER_BUTTON_SIZE = 48;
