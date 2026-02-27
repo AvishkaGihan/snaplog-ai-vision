@@ -1,35 +1,16 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { PaperProvider, Text, ActivityIndicator } from "react-native-paper";
+import { PaperProvider, ActivityIndicator } from "react-native-paper";
 import { registerRootComponent } from "expo";
 import { enableScreens } from "react-native-screens";
 import { useFonts } from "expo-font";
 
-import type { RootTabParamList } from "@/types/navigation.types";
+import RootNavigator from "@/navigation/RootNavigator";
 import { theme } from "@/constants/theme";
 
 enableScreens();
-
-const Tab = createBottomTabNavigator<RootTabParamList>();
-
-function DashboardPlaceholder() {
-  return (
-    <View style={styles.screen}>
-      <Text style={styles.text}>Dashboard</Text>
-    </View>
-  );
-}
-
-function SettingsPlaceholder() {
-  return (
-    <View style={styles.screen}>
-      <Text style={styles.text}>Settings</Text>
-    </View>
-  );
-}
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -75,16 +56,13 @@ export default function App() {
                 fontWeight: "700",
               },
               heavy: {
-                fontFamily: "Inter-Bold",
-                fontWeight: "700",
+                fontFamily: "Inter-SemiBold",
+                fontWeight: "600",
               },
             },
           }}
         >
-          <Tab.Navigator>
-            <Tab.Screen name="Dashboard" component={DashboardPlaceholder} />
-            <Tab.Screen name="Settings" component={SettingsPlaceholder} />
-          </Tab.Navigator>
+          <RootNavigator />
         </NavigationContainer>
       </PaperProvider>
     </SafeAreaProvider>
@@ -97,16 +75,6 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
     justifyContent: "center",
     alignItems: "center",
-  },
-  screen: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: theme.spacing.space4,
-  },
-  text: {
-    color: theme.colors.onBackground,
   },
 });
 
