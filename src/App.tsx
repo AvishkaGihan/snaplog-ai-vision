@@ -1,12 +1,15 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { PaperProvider } from "react-native-paper";
+import { PaperProvider, Text, ActivityIndicator } from "react-native-paper";
+import { registerRootComponent } from "expo";
 import { enableScreens } from "react-native-screens";
+import { useFonts } from "expo-font";
 
 import type { RootTabParamList } from "@/types/navigation.types";
+import { theme } from "@/constants/theme";
 
 enableScreens();
 
@@ -15,7 +18,7 @@ const Tab = createBottomTabNavigator<RootTabParamList>();
 function DashboardPlaceholder() {
   return (
     <View style={styles.screen}>
-      <Text>Dashboard</Text>
+      <Text style={styles.text}>Dashboard</Text>
     </View>
   );
 }
@@ -23,16 +26,61 @@ function DashboardPlaceholder() {
 function SettingsPlaceholder() {
   return (
     <View style={styles.screen}>
-      <Text>Settings</Text>
+      <Text style={styles.text}>Settings</Text>
     </View>
   );
 }
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    "Inter-Regular": require("../assets/fonts/Inter/Inter-Regular.ttf"),
+    "Inter-Medium": require("../assets/fonts/Inter/Inter-Medium.ttf"),
+    "Inter-SemiBold": require("../assets/fonts/Inter/Inter-SemiBold.ttf"),
+    "Inter-Bold": require("../assets/fonts/Inter/Inter-Bold.ttf"),
+  });
+
+  if (!fontsLoaded) {
+    return (
+      <View style={styles.loadingScreen}>
+        <ActivityIndicator color={theme.colors.primary} size="large" />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaProvider>
-      <PaperProvider>
-        <NavigationContainer>
+      <PaperProvider theme={theme}>
+        <NavigationContainer
+          theme={{
+            dark: true,
+            colors: {
+              primary: theme.colors.primary,
+              background: theme.colors.background,
+              card: theme.colors.surface,
+              text: theme.colors.onBackground,
+              border: theme.colors.outline,
+              notification: theme.colors.secondary,
+            },
+            fonts: {
+              regular: {
+                fontFamily: "Inter-Regular",
+                fontWeight: "400",
+              },
+              medium: {
+                fontFamily: "Inter-Medium",
+                fontWeight: "500",
+              },
+              bold: {
+                fontFamily: "Inter-Bold",
+                fontWeight: "700",
+              },
+              heavy: {
+                fontFamily: "Inter-Bold",
+                fontWeight: "700",
+              },
+            },
+          }}
+        >
           <Tab.Navigator>
             <Tab.Screen name="Dashboard" component={DashboardPlaceholder} />
             <Tab.Screen name="Settings" component={SettingsPlaceholder} />
@@ -44,12 +92,22 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  loadingScreen: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   screen: {
     flex: 1,
+    backgroundColor: theme.colors.background,
     alignItems: "center",
     justifyContent: "center",
+    padding: theme.spacing.space4,
+  },
+  text: {
+    color: theme.colors.onBackground,
   },
 });
 
-import { registerRootComponent } from "expo";
 registerRootComponent(App);
