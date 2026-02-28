@@ -64,7 +64,12 @@ export const useAuthStore = create<AuthStore>((set) => ({
   signInWithGoogle: async (idToken: string) => {
     set({ loading: true });
     try {
-      await signInWithGoogleService(idToken);
+      const user = await signInWithGoogleService(idToken);
+      set({
+        user,
+        isAuthenticated: true,
+        loading: false,
+      });
     } catch {
       set({ loading: false });
     }

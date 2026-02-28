@@ -20,7 +20,7 @@ export default function SettingsScreen(): React.ReactElement {
   const { user, signOut } = useAuthStore(
     useShallow((state) => ({ user: state.user, signOut: state.signOut })),
   );
-  const { promptAsync, isReady, loading: googleLoading } = useGoogleAuth();
+  const { signIn, isReady, loading: googleLoading } = useGoogleAuth();
   const [dialogVisible, setDialogVisible] = useState(false);
 
   const initials = useMemo(() => {
@@ -33,7 +33,7 @@ export default function SettingsScreen(): React.ReactElement {
   const isAnonymous = user?.isAnonymous ?? true;
 
   const handleGoogleSignIn = async () => {
-    await promptAsync();
+    await signIn();
   };
 
   const handleConfirmSignOut = async () => {
