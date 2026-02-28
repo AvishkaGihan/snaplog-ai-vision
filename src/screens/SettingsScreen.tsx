@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { View, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useShallow } from "zustand/react/shallow";
 import {
   Avatar,
@@ -43,7 +44,7 @@ export default function SettingsScreen(): React.ReactElement {
   const appVersion = Constants.expoConfig?.version ?? "1.0.0";
 
   return (
-    <View
+    <SafeAreaView
       style={styles.screen}
       testID="settings-screen"
       accessibilityLabel="Settings Screen"
@@ -141,7 +142,7 @@ export default function SettingsScreen(): React.ReactElement {
           </Dialog.Actions>
         </Dialog>
       </Portal>
-    </View>
+    </SafeAreaView>
   );
 }
 
