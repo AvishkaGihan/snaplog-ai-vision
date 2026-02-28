@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { View, StyleSheet } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -6,9 +6,11 @@ import { PaperProvider, ActivityIndicator } from "react-native-paper";
 import { registerRootComponent } from "expo";
 import { enableScreens } from "react-native-screens";
 import { useFonts } from "expo-font";
+import { useShallow } from "zustand/react/shallow";
 
 import RootNavigator from "@/navigation/RootNavigator";
 import { theme } from "@/constants/theme";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 enableScreens();
 
@@ -20,7 +22,16 @@ export default function App() {
     "Inter-Bold": require("../assets/fonts/Inter/Inter-Bold.ttf"),
   });
 
-  if (!fontsLoaded) {
+  const { authLoading } = useAuthStore(
+    useShallow((state) => ({ authLoading: state.loading })),
+  );
+
+  useEffect(() => {
+    const unsubscribe = useAuthStore.getState().initialize();
+    return unsubscribe;
+  }, []);
+
+  if (!fontsLoaded || authLoading) {
     return (
       <View style={styles.loadingScreen}>
         <ActivityIndicator color={theme.colors.primary} size="large" />
