@@ -22,22 +22,14 @@ export default function App() {
     "Inter-Bold": require("../assets/fonts/Inter/Inter-Bold.ttf"),
   });
 
-  const { authLoading } = useAuthStore(
-    useShallow((state) => ({ authLoading: state.loading })),
+  const { isInitialized } = useAuthStore(
+    useShallow((state) => ({ isInitialized: state.isInitialized })),
   );
 
   useEffect(() => {
     const unsubscribe = useAuthStore.getState().initialize();
     return unsubscribe;
   }, []);
-
-  if (!fontsLoaded || authLoading) {
-    return (
-      <View style={styles.loadingScreen}>
-        <ActivityIndicator color={theme.colors.primary} size="large" />
-      </View>
-    );
-  }
 
   return (
     <SafeAreaProvider>
@@ -73,7 +65,13 @@ export default function App() {
             },
           }}
         >
-          <RootNavigator />
+          {!fontsLoaded || !isInitialized ? (
+            <View style={styles.loadingScreen}>
+              <ActivityIndicator color={theme.colors.primary} size="large" />
+            </View>
+          ) : (
+            <RootNavigator />
+          )}
         </NavigationContainer>
       </PaperProvider>
     </SafeAreaProvider>

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { View, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useShallow } from "zustand/react/shallow";
 import {
   Avatar,
@@ -19,7 +20,7 @@ export default function SettingsScreen(): React.ReactElement {
   const { user, signOut } = useAuthStore(
     useShallow((state) => ({ user: state.user, signOut: state.signOut })),
   );
-  const { promptAsync, isReady, loading: googleLoading } = useGoogleAuth();
+  const { signIn, isReady, loading: googleLoading } = useGoogleAuth();
   const [dialogVisible, setDialogVisible] = useState(false);
 
   const initials = useMemo(() => {
@@ -32,7 +33,7 @@ export default function SettingsScreen(): React.ReactElement {
   const isAnonymous = user?.isAnonymous ?? true;
 
   const handleGoogleSignIn = async () => {
-    await promptAsync();
+    await signIn();
   };
 
   const handleConfirmSignOut = async () => {
@@ -43,7 +44,7 @@ export default function SettingsScreen(): React.ReactElement {
   const appVersion = Constants.expoConfig?.version ?? "1.0.0";
 
   return (
-    <View
+    <SafeAreaView
       style={styles.screen}
       testID="settings-screen"
       accessibilityLabel="Settings Screen"
@@ -141,7 +142,7 @@ export default function SettingsScreen(): React.ReactElement {
           </Dialog.Actions>
         </Dialog>
       </Portal>
-    </View>
+    </SafeAreaView>
   );
 }
 

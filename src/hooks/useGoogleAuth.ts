@@ -1,57 +1,56 @@
-import { useEffect, useState } from "react";
-import * as Google from "expo-auth-session/providers/google";
-import type { AuthSessionResult } from "expo-auth-session";
-import * as WebBrowser from "expo-web-browser";
+import { useEffect, useState, useCallback } from "react";
+import {
+  GoogleSignin,
+  isErrorWithCode,
+  statusCodes,
+} from "@react-native-google-signin/google-signin";
 
 import { useAuthStore } from "@/stores/useAuthStore";
 
-WebBrowser.maybeCompleteAuthSession();
-
-type GoogleAuthResponseParams = {
-  id_token?: string;
-};
-
 export const useGoogleAuth = (): {
-  promptAsync: () => Promise<AuthSessionResult>;
+  signIn: () => Promise<void>;
   isReady: boolean;
   loading: boolean;
 } => {
   const signInWithGoogle = useAuthStore((state) => state.signInWithGoogle);
   const [loading, setLoading] = useState(false);
-
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "",
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-  });
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    const exchangeToken = async () => {
-      if (response?.type !== "success") {
-        return;
+    GoogleSignin.configure({
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "",
+    });
+    setIsReady(true);
+  }, []);
+
+  const signIn = useCallback(async () => {
+    setLoading(true);
+    try {
+      await GoogleSignin.hasPlayServices();
+      const response = await GoogleSignin.signIn();
+
+      if (response.type === "success") {
+        const idToken = response.data.idToken;
+        if (idToken) {
+          await signInWithGoogle(idToken);
+        }
       }
-
-      const params = response.params as GoogleAuthResponseParams;
-      const idToken = params.id_token;
-
-      if (!idToken) {
-        return;
+    } catch (error: unknown) {
+      if (isErrorWithCode(error)) {
+        if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+          // User cancelled — do nothing
+          return;
+        }
       }
-
-      setLoading(true);
-      try {
-        await signInWithGoogle(idToken);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void exchangeToken();
-  }, [response, signInWithGoogle]);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, [signInWithGoogle]);
 
   return {
-    promptAsync,
-    isReady: Boolean(request),
+    signIn,
+    isReady,
     loading,
   };
 };
