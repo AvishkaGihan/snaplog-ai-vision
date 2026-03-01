@@ -22,13 +22,17 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.avishkagihan.snaplogaivision"
     },
     "web": {
       "bundler": "metro",
       "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
-    "plugins": ["expo-web-browser"]
+    "plugins": [
+      "expo-web-browser",
+      "./node_modules/@react-native-google-signin/google-signin/app.plugin.js"
+    ]
   }
 }

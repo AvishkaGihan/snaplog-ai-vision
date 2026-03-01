@@ -623,8 +623,10 @@ GPT-5.3-Codex
 
 - .env.example
 - app.json
+- android/app/src/main/res/values/styles.xml
 - firestore.rules
 - storage.rules
+- tsconfig.json
 - src/App.tsx
 - src/hooks/index.ts
 - src/hooks/useGoogleAuth.ts
@@ -642,6 +644,16 @@ GPT-5.3-Codex
 
 - 2026-02-28: Implemented Story 1.4 Firebase authentication flow (anonymous + Google upgrade), auth state management, settings auth UI, security rules updates, env docs, and validation checks.
 - 2026-02-28: Code review completed. Fixed 6 issues (1 critical, 3 medium, 2 low). Story marked as done.
+- 2026-03-01: Post-implementation fixes during runtime testing on Android device:
+  - **Replaced `expo-auth-session` with `@react-native-google-signin/google-signin@13.1.0`** — the browser-based OAuth flow was blocked by Google ("Custom URI scheme not allowed for WEB client type"). The native SDK avoids redirect URIs entirely. Note: AC4 references `expo-auth-session`/`Google.useIdTokenAuthRequest`; the implementation now uses the native SDK with the same Firebase credential exchange pattern. Hook API changed from `{ promptAsync, isReady, loading }` to `{ signIn, isReady, loading }`.
+  - **`signInWithGoogleService` now returns `AuthUser` instead of `void`** — `linkWithCredential` does not trigger `onAuthStateChanged` when the UID stays the same (anonymous → Google link), so the store now sets state directly from the return value instead of waiting for the listener.
+  - **Added `isInitialized` field to `useAuthStore`** — separates "first load complete" from per-operation `loading`. `App.tsx` now gates on `isInitialized` only, preventing the whole navigator from unmounting on every sign-in/sign-out.
+  - **`mapFirebaseUserToAuthUser` falls back to Google provider data** — `displayName`/`photoURL` can be `null` on the Firebase `User` object immediately after `linkWithCredential`; the function now reads them from `user.providerData` as a fallback.
+  - **`updateProfile` called after `linkWithCredential`** — persists Google display name and photo URL to the Firebase user profile so subsequent `onAuthStateChanged` events also carry the correct data.
+  - **`android/app/src/main/res/values/styles.xml`** — set `enforceNavigationBarContrast` to `false` and `navigationBarColor`/`statusBarColor` to transparent; the previous values were forcing a white system navigation bar.
+  - **`app.json` plugin entry** — changed `"@react-native-google-signin/google-signin"` to an explicit path `"./node_modules/@react-native-google-signin/google-signin/app.plugin.js"` to avoid VS Code Expo extension resolving the ESM module entry and showing a false error.
+  - **`tsconfig.json`** — added `"exclude": ["node_modules"]` to stop TypeScript from scanning `node_modules` and surfacing false errors from `expo-modules-core`.
+  - **`providers/NavigationContainer` always mounted** — moved the loading spinner inside `NavigationContainer` so providers are never unmounted during auth transitions, eliminating the Android system navigation bar color flash.
 
 ## Senior Developer Review (AI)
 
