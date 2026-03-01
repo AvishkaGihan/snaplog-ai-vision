@@ -51,7 +51,7 @@ development_status:
   epic-2: in-progress
   2-1-camera-screen-and-photo-capture: done
   2-2-gallery-picker-alternative: done
-  2-3-permission-handling-and-graceful-denial: backlog
+  2-3-permission-handling-and-graceful-denial: done
   2-4-image-compression-pipeline: backlog
   epic-2-retrospective: optional
 
