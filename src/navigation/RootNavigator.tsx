@@ -5,9 +5,7 @@ import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityI
 
 import { theme } from "@/constants/theme";
 import { DashboardStack } from "@/navigation";
-import CameraScreen from "@/screens/CameraScreen";
-import ReviewFormScreen from "@/screens/ReviewFormScreen";
-import SettingsScreen from "@/screens/SettingsScreen";
+import { CameraScreen, ReviewFormScreen, SettingsScreen } from "@/screens";
 import type {
   RootStackParamList,
   RootTabParamList,
