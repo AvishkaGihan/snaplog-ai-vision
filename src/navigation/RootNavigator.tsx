@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 
 import { theme } from "@/constants/theme";
-import { DashboardStack } from "@/navigation";
+import DashboardStack from "./DashboardStack";
 import { CameraScreen, ReviewFormScreen, SettingsScreen } from "@/screens";
 import type {
   RootStackParamList,
