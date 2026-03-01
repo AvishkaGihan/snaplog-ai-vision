@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Image, Linking, Pressable, StyleSheet, View } from "react-native";
+import { Alert, Image, Linking, Pressable, StyleSheet, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import * as ImagePicker from "expo-image-picker";
 import { ActivityIndicator, Button, IconButton } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -16,6 +17,7 @@ export default function CameraScreen() {
   const [cameraReady, setCameraReady] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
+  const [showGalleryPermission, setShowGalleryPermission] = useState(false);
   const isMounted = useRef(true);
   const isNavigating = useRef(false);
 
@@ -72,6 +74,70 @@ export default function CameraScreen() {
   const handleRequestPermission = useCallback(() => {
     requestPermission();
   }, [requestPermission]);
+
+  const openGalleryPicker = useCallback(async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: false,
+      quality: 0.8,
+    });
+
+    if (!isMounted.current) return;
+
+    if (!result.canceled && result.assets[0]) {
+      setCapturedImageUri(result.assets[0].uri);
+    }
+  }, []);
+
+  const handlePickFromGallery = useCallback(async () => {
+    try {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!isMounted.current) return;
+
+      if (status !== "granted") {
+        setShowGalleryPermission(true);
+        return;
+      }
+
+      setShowGalleryPermission(false);
+      await openGalleryPicker();
+    } catch (error) {
+      console.warn("Failed to pick image from gallery", error);
+      Alert.alert(
+        "Gallery Error",
+        "Failed to open the photo gallery. Please try again."
+      );
+    }
+  }, [openGalleryPicker]);
+
+  const handleAllowGalleryPermission = useCallback(async () => {
+    try {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!isMounted.current) return;
+
+      if (status !== "granted") {
+        setShowGalleryPermission(true);
+        return;
+      }
+
+      setShowGalleryPermission(false);
+      await openGalleryPicker();
+    } catch (error) {
+      console.warn("Failed to request gallery permission", error);
+      Alert.alert(
+        "Permission Error",
+        "Failed to request photo gallery access. Please try again."
+      );
+    }
+  }, [openGalleryPicker]);
+
+  const handleDismissGalleryPermission = useCallback(() => {
+    setShowGalleryPermission(false);
+  }, []);
 
   const handleOpenSettings = useCallback(() => {
     Linking.openSettings();
@@ -199,6 +265,19 @@ export default function CameraScreen() {
           { paddingBottom: insets.bottom + theme.spacing.space4 },
         ]}
       >
+        <IconButton
+          icon="image-multiple"
+          size={24}
+          mode="contained"
+          onPress={handlePickFromGallery}
+          style={styles.galleryButton}
+          iconColor={theme.colors.onBackground}
+          containerColor="rgba(26, 26, 34, 0.6)"
+          testID="camera-gallery-picker"
+          accessibilityRole="button"
+          accessibilityLabel="Pick from gallery"
+        />
+
         <Pressable
           onPress={handleTakePicture}
           disabled={!cameraReady || isCapturing}
@@ -214,7 +293,39 @@ export default function CameraScreen() {
             <ActivityIndicator size="small" color={theme.colors.onBackground} />
           ) : null}
         </Pressable>
+
+        <View style={styles.shutterSpacer} />
       </View>
+
+      {showGalleryPermission ? (
+        <View style={styles.galleryPermissionOverlay}>
+          <PermissionCard
+            icon="image-multiple"
+            title="Photo Library Access Needed"
+            description="SnapLog needs access to your photo library so you can select existing photos for cataloging."
+            onAllow={handleAllowGalleryPermission}
+            allowLabel="Allow Photo Access"
+            onOpenSettings={handleOpenSettings}
+            showSettingsButton
+            testID="gallery-permission-card"
+            allowButtonTestID="gallery-permission-allow"
+            settingsButtonTestID="gallery-permission-settings"
+            allowAccessibilityLabel="Allow photo library access"
+            settingsAccessibilityLabel="Open device settings"
+          />
+
+          <Button
+            mode="text"
+            onPress={handleDismissGalleryPermission}
+            style={styles.galleryPermissionDismissButton}
+            contentStyle={styles.previewButtonContent}
+            testID="gallery-permission-dismiss"
+            accessibilityLabel="Dismiss gallery permission message"
+          >
+            Dismiss
+          </Button>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -245,7 +356,16 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: theme.spacing.space4,
+  },
+  galleryButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    margin: 0,
   },
   shutterButton: {
     width: 48,
@@ -257,6 +377,10 @@ const styles = StyleSheet.create({
   },
   shutterButtonDisabled: {
     opacity: 0.6,
+  },
+  shutterSpacer: {
+    width: 44,
+    height: 44,
   },
   previewImage: {
     flex: 1,
@@ -274,5 +398,16 @@ const styles = StyleSheet.create({
   },
   previewButtonContent: {
     minHeight: 44,
+  },
+  galleryPermissionOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(15, 15, 19, 0.85)",
+    justifyContent: "center",
+    padding: theme.spacing.space4,
+    gap: theme.spacing.space3,
+    zIndex: 10,
+  },
+  galleryPermissionDismissButton: {
+    borderRadius: theme.borderRadius.buttons,
   },
 });
