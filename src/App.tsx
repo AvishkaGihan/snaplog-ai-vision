@@ -8,7 +8,7 @@ import { enableScreens } from "react-native-screens";
 import { useFonts } from "expo-font";
 import { useShallow } from "zustand/react/shallow";
 
-import RootNavigator from "@/navigation/RootNavigator";
+import { RootNavigator } from "@/navigation";
 import { theme } from "@/constants/theme";
 import { useAuthStore } from "@/stores/useAuthStore";
 

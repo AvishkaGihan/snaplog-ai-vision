@@ -1,9 +1,7 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
-import DashboardScreen from "@/screens/DashboardScreen";
-import EditItemScreen from "@/screens/EditItemScreen";
-import ItemDetailScreen from "@/screens/ItemDetailScreen";
+import { DashboardScreen, EditItemScreen, ItemDetailScreen } from "@/screens";
 import type { DashboardStackParamList } from "@/types/navigation.types";
 
 const Stack = createNativeStackNavigator<DashboardStackParamList>();
