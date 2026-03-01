@@ -45,7 +45,7 @@ development_status:
   1-2-design-system-and-theme-foundation: done
   1-3-navigation-architecture: done
   1-4-firebase-integration-and-authentication: done
-  1-5-zustand-state-management-and-mmkv-persistence: backlog
+  1-5-zustand-state-management-and-mmkv-persistence: done
   epic-1-retrospective: optional
 
   epic-2: backlog
