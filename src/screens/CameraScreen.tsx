@@ -1,5 +1,14 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Image, Linking, Pressable, StyleSheet, View } from "react-native";
+import {
+  Alert,
+  AppState,
+  AppStateStatus,
+  Image,
+  Linking,
+  Pressable,
+  StyleSheet,
+  View,
+} from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
 import { ActivityIndicator, Button, IconButton } from "react-native-paper";
@@ -18,8 +27,10 @@ export default function CameraScreen() {
   const [isCapturing, setIsCapturing] = useState(false);
   const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
   const [showGalleryPermission, setShowGalleryPermission] = useState(false);
+  const showGalleryPermissionRef = useRef(false);
   const isMounted = useRef(true);
   const isNavigating = useRef(false);
+  const appState = useRef(AppState.currentState);
 
   useEffect(() => {
     isMounted.current = true;
@@ -27,6 +38,10 @@ export default function CameraScreen() {
       isMounted.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    showGalleryPermissionRef.current = showGalleryPermission;
+  }, [showGalleryPermission]);
 
   const handleTakePicture = useCallback(async () => {
     if (!cameraRef.current || !cameraReady || isCapturing) {
@@ -107,7 +122,7 @@ export default function CameraScreen() {
       console.warn("Failed to pick image from gallery", error);
       Alert.alert(
         "Gallery Error",
-        "Failed to open the photo gallery. Please try again."
+        "Failed to open the photo gallery. Please try again.",
       );
     }
   }, [openGalleryPicker]);
@@ -130,7 +145,7 @@ export default function CameraScreen() {
       console.warn("Failed to request gallery permission", error);
       Alert.alert(
         "Permission Error",
-        "Failed to request photo gallery access. Please try again."
+        "Failed to request photo gallery access. Please try again.",
       );
     }
   }, [openGalleryPicker]);
@@ -142,6 +157,69 @@ export default function CameraScreen() {
   const handleOpenSettings = useCallback(() => {
     Linking.openSettings();
   }, []);
+
+  const handleAppForegroundPermissionRecheck = useCallback(async () => {
+    try {
+      await requestPermission();
+    } catch (error) {
+      console.warn("Failed to re-check camera permission after app foreground", error);
+    }
+
+    if (!showGalleryPermissionRef.current) {
+      return;
+    }
+
+    try {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!isMounted.current) return;
+
+      if (status === "granted") {
+        setShowGalleryPermission(false);
+        await openGalleryPicker();
+      }
+    } catch (error) {
+      console.warn("Failed to re-check gallery permission after app foreground", error);
+    }
+  }, [openGalleryPicker, requestPermission]);
+
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+    let isChecking = false;
+
+    const subscription = AppState.addEventListener(
+      "change",
+      (nextAppState: AppStateStatus) => {
+        // Only run check if we are transitioning FROM background TO active
+        const isComingToForeground =
+          appState.current.match(/inactive|background/) &&
+          nextAppState === "active";
+
+        if (isComingToForeground && !isChecking) {
+          isChecking = true;
+          // Debounce the check slightly to let the OS permission dialogs settle
+          clearTimeout(timeoutId);
+          timeoutId = setTimeout(() => {
+            if (isMounted.current) {
+              void handleAppForegroundPermissionRecheck().finally(() => {
+                isChecking = false;
+              });
+            } else {
+              isChecking = false;
+            }
+          }, 500);
+        }
+
+        appState.current = nextAppState;
+      },
+    );
+
+    return () => {
+      clearTimeout(timeoutId);
+      subscription.remove();
+    };
+  }, [handleAppForegroundPermissionRecheck]);
 
   if (!permission) {
     return (
@@ -158,8 +236,10 @@ export default function CameraScreen() {
           styles.permissionContainer,
           { paddingTop: insets.top + theme.spacing.space4 },
         ]}
+        accessibilityLiveRegion="polite"
       >
         <PermissionCard
+          icon="camera"
           title="Camera Access Needed"
           description="SnapLog needs camera access to photograph items for your inventory. Your photos are processed securely."
           onAllow={handleRequestPermission}
@@ -298,7 +378,7 @@ export default function CameraScreen() {
       </View>
 
       {showGalleryPermission ? (
-        <View style={styles.galleryPermissionOverlay}>
+        <View style={styles.galleryPermissionOverlay} accessibilityLiveRegion="polite">
           <PermissionCard
             icon="image-multiple"
             title="Photo Library Access Needed"
