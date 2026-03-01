@@ -48,8 +48,8 @@ development_status:
   1-5-zustand-state-management-and-mmkv-persistence: done
   epic-1-retrospective: done
 
-  epic-2: backlog
-  2-1-camera-screen-and-photo-capture: backlog
+  epic-2: in-progress
+  2-1-camera-screen-and-photo-capture: done
   2-2-gallery-picker-alternative: backlog
   2-3-permission-handling-and-graceful-denial: backlog
   2-4-image-compression-pipeline: backlog

@@ -1,23 +1,220 @@
-import React from "react";
-import { View, StyleSheet } from "react-native";
-import { Text } from "react-native-paper";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Image, Linking, Pressable, StyleSheet, View } from "react-native";
+import { CameraView, useCameraPermissions } from "expo-camera";
+import { ActivityIndicator, Button, IconButton } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { PermissionCard } from "@/components";
 import { theme } from "@/constants/theme";
+import { useRootStackNavigation } from "@/types/navigation.types";
 
 export default function CameraScreen() {
+  const navigation = useRootStackNavigation();
   const insets = useSafeAreaInsets();
+  const cameraRef = useRef<CameraView | null>(null);
+  const [permission, requestPermission] = useCameraPermissions();
+  const [cameraReady, setCameraReady] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
+  const isMounted = useRef(true);
+  const isNavigating = useRef(false);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  const handleTakePicture = useCallback(async () => {
+    if (!cameraRef.current || !cameraReady || isCapturing) {
+      return;
+    }
+
+    try {
+      setIsCapturing(true);
+      const picture = await cameraRef.current.takePictureAsync({
+        quality: 0.8,
+      });
+
+      if (isMounted.current && picture?.uri) {
+        setCapturedImageUri(picture.uri);
+      }
+    } catch (error) {
+      console.warn("Failed to capture image", error);
+    } finally {
+      if (isMounted.current) {
+        setIsCapturing(false);
+      }
+    }
+  }, [cameraReady, isCapturing]);
+
+  const handleUsePhoto = useCallback(() => {
+    if (!capturedImageUri || isNavigating.current) {
+      return;
+    }
+
+    isNavigating.current = true;
+    navigation.navigate("ReviewForm", { imageUri: capturedImageUri });
+
+    // Lock navigation briefly to prevent double taps
+    setTimeout(() => {
+      if (isMounted.current) {
+        isNavigating.current = false;
+      }
+    }, 500);
+  }, [capturedImageUri, navigation]);
+
+  const handleRetake = useCallback(() => {
+    setCapturedImageUri(null);
+  }, []);
+
+  const handleRequestPermission = useCallback(() => {
+    requestPermission();
+  }, [requestPermission]);
+
+  const handleOpenSettings = useCallback(() => {
+    Linking.openSettings();
+  }, []);
+
+  if (!permission) {
+    return (
+      <View style={styles.loadingContainer} testID="camera-screen-loading">
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
+  if (!permission.granted) {
+    return (
+      <View
+        style={[
+          styles.permissionContainer,
+          { paddingTop: insets.top + theme.spacing.space4 },
+        ]}
+      >
+        <PermissionCard
+          title="Camera Access Needed"
+          description="SnapLog needs camera access to photograph items for your inventory. Your photos are processed securely."
+          onAllow={handleRequestPermission}
+          allowLabel="Allow Camera Access"
+          onOpenSettings={handleOpenSettings}
+          showSettingsButton
+          testID="camera-permission-card"
+          allowButtonTestID="camera-permission-allow"
+          settingsButtonTestID="camera-permission-settings"
+          allowAccessibilityLabel="Allow camera access"
+          settingsAccessibilityLabel="Open device settings"
+        />
+      </View>
+    );
+  }
+
+  if (capturedImageUri) {
+    return (
+      <View style={styles.screen}>
+        <Image
+          source={{ uri: capturedImageUri }}
+          style={styles.previewImage}
+          resizeMode="cover"
+          accessibilityLabel="Captured photo preview"
+        />
+
+        <IconButton
+          icon="close"
+          size={24}
+          mode="contained"
+          onPress={() => navigation.goBack()}
+          style={[
+            styles.closeButton,
+            { top: insets.top + theme.spacing.space2 },
+          ]}
+          iconColor={theme.colors.onBackground}
+          containerColor={theme.colors.surface}
+          testID="camera-close"
+          accessibilityLabel="Close camera"
+        />
+
+        <View
+          style={[
+            styles.previewActions,
+            { paddingBottom: insets.bottom + theme.spacing.space4 },
+          ]}
+        >
+          <Button
+            mode="outlined"
+            onPress={handleRetake}
+            style={styles.previewButton}
+            contentStyle={styles.previewButtonContent}
+            testID="camera-retake"
+            accessibilityLabel="Retake photo"
+          >
+            Retake
+          </Button>
+          <Button
+            mode="contained"
+            onPress={handleUsePhoto}
+            style={styles.previewButton}
+            contentStyle={styles.previewButtonContent}
+            testID="camera-use-photo"
+            accessibilityLabel="Use photo"
+          >
+            Use Photo
+          </Button>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View
-      style={[
-        styles.screen,
-        { paddingTop: insets.top, paddingBottom: insets.bottom },
-      ]}
+      style={styles.screen}
       testID="camera-screen"
       accessibilityLabel="Camera Screen"
     >
-      <Text style={styles.text}>Camera</Text>
+      <CameraView
+        ref={cameraRef}
+        style={StyleSheet.absoluteFill}
+        facing="back"
+        animateShutter
+        onCameraReady={() => setCameraReady(true)}
+        accessibilityLabel="Camera viewfinder"
+      />
+
+      <IconButton
+        icon="close"
+        size={24}
+        mode="contained"
+        onPress={() => navigation.goBack()}
+        style={[styles.closeButton, { top: insets.top + theme.spacing.space2 }]}
+        iconColor={theme.colors.onBackground}
+        containerColor={theme.colors.surface}
+        testID="camera-close"
+        accessibilityLabel="Close camera"
+      />
+
+      <View
+        style={[
+          styles.shutterContainer,
+          { paddingBottom: insets.bottom + theme.spacing.space4 },
+        ]}
+      >
+        <Pressable
+          onPress={handleTakePicture}
+          disabled={!cameraReady || isCapturing}
+          style={[
+            styles.shutterButton,
+            (!cameraReady || isCapturing) && styles.shutterButtonDisabled,
+          ]}
+          testID="camera-shutter"
+          accessibilityRole="button"
+          accessibilityLabel="Take photo"
+        >
+          {isCapturing ? (
+            <ActivityIndicator size="small" color={theme.colors.onBackground} />
+          ) : null}
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -26,11 +223,56 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
     alignItems: "center",
     justifyContent: "center",
+  },
+  permissionContainer: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
     padding: theme.spacing.space4,
   },
-  text: {
-    color: theme.colors.onBackground,
+  closeButton: {
+    position: "absolute",
+    left: theme.spacing.space3,
+    zIndex: 2,
+  },
+  shutterContainer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+  },
+  shutterButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: theme.colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  shutterButtonDisabled: {
+    opacity: 0.6,
+  },
+  previewImage: {
+    flex: 1,
+    width: "100%",
+  },
+  previewActions: {
+    position: "absolute",
+    left: theme.spacing.space4,
+    right: theme.spacing.space4,
+    bottom: 0,
+    gap: theme.spacing.space3,
+  },
+  previewButton: {
+    borderRadius: theme.borderRadius.buttons,
+  },
+  previewButtonContent: {
+    minHeight: 44,
   },
 });
