@@ -8,8 +8,10 @@
     "outDir": "lib",
     "sourceMap": true,
     "strict": true,
-    "target": "es2019"
+    "target": "es2019",
+    "types": ["jest"],
+    "isolatedModules": true
   },
   "compileOnSave": true,
-  "include": ["src"]
+  "include": ["src", "__tests__"]
 }

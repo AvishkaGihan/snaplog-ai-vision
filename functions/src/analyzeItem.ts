@@ -1,7 +1,9 @@
 import * as functions from "firebase-functions/v1";
+import { checkRateLimit } from "./middleware/rateLimiter";
 import { ITEM_ANALYSIS_PROMPT } from "./prompts/itemAnalysis";
 import { analyzeImageWithGemini } from "./utils/geminiClient";
 import { logAiParseFailure } from "./utils/logger";
+import { withRetry } from "./utils/retry";
 import { parseAIResponse } from "./utils/responseParser";
 import type {
   AnalyzeItemRequest,
@@ -71,10 +73,48 @@ export const analyzeItem = functions.https.onCall(
       };
     }
 
+    const rateLimit = checkRateLimit(uid);
+
+    if (!rateLimit.allowed) {
+      functions.logger.warn("Rate limit exceeded", {
+        uid,
+        timestamp: new Date().toISOString(),
+        requestCount: rateLimit.requestCount,
+        windowStart: rateLimit.windowStart,
+        retryAfterSeconds: rateLimit.retryAfterSeconds,
+      });
+
+      const retryAfterSeconds = rateLimit.retryAfterSeconds ?? 0;
+
+      return {
+        success: false,
+        error: {
+          code: "RATE_LIMITED",
+          message: `Rate limit exceeded. Try again in ${retryAfterSeconds} seconds.`,
+        },
+      };
+    }
+
     try {
-      const rawResponse = await analyzeImageWithGemini(
-        data.imageUrl,
-        ITEM_ANALYSIS_PROMPT,
+      const rawResponse = await withRetry(
+        () => analyzeImageWithGemini(data.imageUrl, ITEM_ANALYSIS_PROMPT),
+        {
+          shouldRetry: (error: unknown): boolean => {
+            const message =
+              error instanceof Error
+                ? error.message.toLowerCase()
+                : String(error).toLowerCase();
+
+            return (
+              message.includes("timeout") ||
+              message.includes("deadline") ||
+              message.includes("network") ||
+              message.includes("econnreset") ||
+              message.includes("econnrefused") ||
+              message.includes("fetch")
+            );
+          },
+        },
       );
 
       let parsedResponse: unknown;
@@ -85,7 +125,7 @@ export const analyzeItem = functions.https.onCall(
         logAiParseFailure({
           uid,
           rawResponse,
-          parseError: String(parseError),
+          parseError: parseError instanceof Error ? parseError.message : String(parseError),
           timestamp: new Date().toISOString(),
         });
 
