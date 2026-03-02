@@ -20,7 +20,6 @@
 #   - ready-for-dev: Story file created in stories folder
 #   - in-progress: Developer actively working on implementation
 #   - review: Ready for code review (via Dev's code-review workflow)
-#   - done: Story completed
 #
 # Retrospective Status:
 #   - optional: Can be completed but not required
@@ -48,12 +47,12 @@ development_status:
   1-5-zustand-state-management-and-mmkv-persistence: done
   epic-1-retrospective: done
 
-  epic-2: in-progress
+  epic-2: done
   2-1-camera-screen-and-photo-capture: done
   2-2-gallery-picker-alternative: done
   2-3-permission-handling-and-graceful-denial: done
   2-4-image-compression-pipeline: done
-  epic-2-retrospective: optional
+  epic-2-retrospective: done
 
   epic-3: backlog
   3-1-cloud-function-and-gemini-ai-integration: backlog
