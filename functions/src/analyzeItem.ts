@@ -27,7 +27,10 @@ function mapUnexpectedErrorToCode(
 }
 
 export const analyzeItem = functions.https.onCall(
-  async (data: AnalyzeItemRequest, context): Promise<AnalyzeItemResponse> => {
+  async (
+    data: AnalyzeItemRequest,
+    context: functions.https.CallableContext,
+  ): Promise<AnalyzeItemResponse> => {
     if (!context.auth) {
       throw new functions.https.HttpsError(
         "unauthenticated",
