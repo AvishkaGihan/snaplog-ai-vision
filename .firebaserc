@@ -1,5 +1,7 @@
 {
   "projects": {
     "default": "snaplog-ai-vision-36158"
-  }
+  },
+  "targets": {},
+  "etags": {}
 }

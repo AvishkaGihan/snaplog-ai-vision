@@ -54,8 +54,8 @@ development_status:
   2-4-image-compression-pipeline: done
   epic-2-retrospective: done
 
-  epic-3: backlog
-  3-1-cloud-function-and-gemini-ai-integration: backlog
+  epic-3: in-progress
+  3-1-cloud-function-and-gemini-ai-integration: done
   3-2-rate-limiting-and-error-logging: backlog
   3-3-ai-service-client-and-loading-experience: backlog
   3-4-ai-failure-handling-and-manual-entry-fallback: backlog
