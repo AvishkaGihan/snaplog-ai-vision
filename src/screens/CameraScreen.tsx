@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PermissionCard } from "@/components";
 import { theme } from "@/constants/theme";
+import { compressImage } from "@/services/imageService";
 import { useRootStackNavigation } from "@/types/navigation.types";
 
 export default function CameraScreen() {
@@ -25,6 +26,7 @@ export default function CameraScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [cameraReady, setCameraReady] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
   const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
   const [showGalleryPermission, setShowGalleryPermission] = useState(false);
   const showGalleryPermissionRef = useRef(false);
@@ -66,21 +68,70 @@ export default function CameraScreen() {
     }
   }, [cameraReady, isCapturing]);
 
-  const handleUsePhoto = useCallback(() => {
-    if (!capturedImageUri || isNavigating.current) {
+  const navigateToReviewForm = useCallback(
+    (imageUri: string) => {
+      isNavigating.current = true;
+      navigation.navigate("ReviewForm", { imageUri });
+
+      setTimeout(() => {
+        if (isMounted.current) {
+          isNavigating.current = false;
+        }
+      }, 500);
+    },
+    [navigation],
+  );
+
+  const handleUsePhoto = useCallback(async () => {
+    if (!capturedImageUri || isNavigating.current || isCompressing) {
       return;
     }
 
-    isNavigating.current = true;
-    navigation.navigate("ReviewForm", { imageUri: capturedImageUri });
+    try {
+      setIsCompressing(true);
+      const compressed = await compressImage(capturedImageUri);
 
-    // Lock navigation briefly to prevent double taps
-    setTimeout(() => {
-      if (isMounted.current) {
-        isNavigating.current = false;
+      if (!isMounted.current) {
+        return;
       }
-    }, 500);
-  }, [capturedImageUri, navigation]);
+
+      navigateToReviewForm(compressed.uri);
+    } catch (error) {
+      console.warn("Failed to compress image", error);
+
+      if (!isMounted.current) {
+        return;
+      }
+
+      Alert.alert(
+        "Compression Failed",
+        "Couldn't compress the image. Retry, or continue with the original photo.",
+        [
+          {
+            text: "Retry",
+            onPress: () => {
+              void handleUsePhoto();
+            },
+          },
+          {
+            text: "Use Original",
+            onPress: () => {
+              if (!capturedImageUri) {
+                return;
+              }
+
+              navigateToReviewForm(capturedImageUri);
+            },
+          },
+          { text: "Cancel", style: "cancel" },
+        ],
+      );
+    } finally {
+      if (isMounted.current) {
+        setIsCompressing(false);
+      }
+    }
+  }, [capturedImageUri, isCompressing, navigateToReviewForm]);
 
   const handleRetake = useCallback(() => {
     setCapturedImageUri(null);
@@ -162,7 +213,10 @@ export default function CameraScreen() {
     try {
       await requestPermission();
     } catch (error) {
-      console.warn("Failed to re-check camera permission after app foreground", error);
+      console.warn(
+        "Failed to re-check camera permission after app foreground",
+        error,
+      );
     }
 
     if (!showGalleryPermissionRef.current) {
@@ -180,7 +234,10 @@ export default function CameraScreen() {
         await openGalleryPicker();
       }
     } catch (error) {
-      console.warn("Failed to re-check gallery permission after app foreground", error);
+      console.warn(
+        "Failed to re-check gallery permission after app foreground",
+        error,
+      );
     }
   }, [openGalleryPicker, requestPermission]);
 
@@ -290,6 +347,7 @@ export default function CameraScreen() {
           <Button
             mode="outlined"
             onPress={handleRetake}
+            disabled={isCompressing}
             style={styles.previewButton}
             contentStyle={styles.previewButtonContent}
             testID="camera-retake"
@@ -299,13 +357,25 @@ export default function CameraScreen() {
           </Button>
           <Button
             mode="contained"
-            onPress={handleUsePhoto}
+            onPress={() => {
+              void handleUsePhoto();
+            }}
+            disabled={isCompressing}
             style={styles.previewButton}
             contentStyle={styles.previewButtonContent}
             testID="camera-use-photo"
             accessibilityLabel="Use photo"
           >
-            Use Photo
+            {isCompressing ? (
+              <ActivityIndicator
+                size="small"
+                color={theme.colors.onPrimary}
+                testID="camera-compressing-indicator"
+                accessibilityLabel="Compressing image"
+              />
+            ) : (
+              "Use Photo"
+            )}
           </Button>
         </View>
       </View>
@@ -378,7 +448,10 @@ export default function CameraScreen() {
       </View>
 
       {showGalleryPermission ? (
-        <View style={styles.galleryPermissionOverlay} accessibilityLiveRegion="polite">
+        <View
+          style={styles.galleryPermissionOverlay}
+          accessibilityLiveRegion="polite"
+        >
           <PermissionCard
             icon="image-multiple"
             title="Photo Library Access Needed"
