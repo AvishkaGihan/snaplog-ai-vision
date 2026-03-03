@@ -1,6 +1,6 @@
 export const MAX_IMAGE_SIZE_BYTES = 500_000;
 export const MAX_IMAGE_DIMENSION = 1280;
-export const AI_TIMEOUT_MS = 6000;
+export const AI_TIMEOUT_MS = 20000;
 export const AI_LOADING_COPY_INTERVAL_MS = 1500;
 export const MAX_AI_RETRIES = 2;
 export const RETRY_BASE_DELAY_MS = 1000;

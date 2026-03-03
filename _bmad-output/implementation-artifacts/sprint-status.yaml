@@ -57,7 +57,7 @@ development_status:
   epic-3: in-progress
   3-1-cloud-function-and-gemini-ai-integration: done
   3-2-rate-limiting-and-error-logging: done
-  3-3-ai-service-client-and-loading-experience: backlog
+  3-3-ai-service-client-and-loading-experience: done
   3-4-ai-failure-handling-and-manual-entry-fallback: backlog
   epic-3-retrospective: optional
 
