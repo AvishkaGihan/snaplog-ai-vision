@@ -11,10 +11,17 @@ import {
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
-import { ActivityIndicator, Button, IconButton } from "react-native-paper";
+import {
+  ActivityIndicator,
+  Button,
+  IconButton,
+  Snackbar,
+  Text,
+} from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PermissionCard, ScanLoadingOverlay } from "@/components";
+import { SNACKBAR_DURATION_MS } from "@/constants/config";
 import { theme } from "@/constants/theme";
 import { analyzeItem } from "@/services/aiService";
 import { compressImage } from "@/services/imageService";
@@ -32,6 +39,9 @@ export default function CameraScreen() {
   const [isCapturing, setIsCapturing] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState(false);
+  const [hasUploadedData, setHasUploadedData] = useState(false);
+  const [showErrorSnackbar, setShowErrorSnackbar] = useState(false);
   const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
   const [showGalleryPermission, setShowGalleryPermission] = useState(false);
   const showGalleryPermissionRef = useRef(false);
@@ -112,6 +122,14 @@ export default function CameraScreen() {
     analysisTimedOut.current = true;
     setIsAnalyzing(false);
     setIsCompressing(false);
+    setAnalysisError(true);
+    setShowErrorSnackbar(true);
+  }, [capturedImageUri]);
+
+  const handleFillManually = useCallback(() => {
+    if (!capturedImageUri || isNavigating.current) {
+      return;
+    }
 
     const { compressedUri, storagePath, downloadUrl } = processingData.current;
     navigateToReviewForm(
@@ -120,7 +138,125 @@ export default function CameraScreen() {
       storagePath,
       downloadUrl,
     );
+
+    // Reset error state so back navigation doesn't land on error overlay
+    setAnalysisError(false);
   }, [capturedImageUri, navigateToReviewForm]);
+
+  const handleRetryAnalysis = useCallback(async () => {
+    if (!capturedImageUri || isNavigating.current) {
+      return;
+    }
+
+    if (!user?.uid) {
+      Alert.alert("Not Signed In", "You must be signed in to analyze items.");
+      return;
+    }
+
+    analysisTimedOut.current = false;
+    setAnalysisError(false);
+
+    try {
+      const { downloadUrl, storagePath, compressedUri } =
+        processingData.current;
+
+      if (downloadUrl && hasUploadedData) {
+        setIsAnalyzing(true);
+
+        const aiResponse = await analyzeItem(downloadUrl);
+
+        if (!isMounted.current || analysisTimedOut.current) {
+          return;
+        }
+
+        setIsAnalyzing(false);
+
+        if (aiResponse.success && aiResponse.data) {
+          navigateToReviewForm(
+            compressedUri || capturedImageUri,
+            aiResponse.data,
+            storagePath,
+            downloadUrl,
+          );
+          return;
+        }
+
+        console.warn(
+          "AI retry failed",
+          aiResponse.error?.code,
+          aiResponse.error?.message,
+        );
+        setAnalysisError(true);
+        setShowErrorSnackbar(true);
+        return;
+      }
+
+      setIsAnalyzing(true); // Set to true immediately so ScanLoadingOverlay appears
+      setIsCompressing(true);
+
+      let finalCompressedUri = compressedUri;
+      if (!finalCompressedUri) {
+        const compressed = await compressImage(capturedImageUri);
+        processingData.current.compressedUri = compressed.uri;
+        finalCompressedUri = compressed.uri;
+      }
+
+      if (!isMounted.current) {
+        return;
+      }
+
+      const uploadResult = await uploadItemImage(finalCompressedUri, user.uid);
+      processingData.current.storagePath = uploadResult.storagePath;
+      processingData.current.downloadUrl = uploadResult.downloadUrl;
+      setHasUploadedData(true);
+
+      if (!isMounted.current || analysisTimedOut.current) {
+        return;
+      }
+
+      setIsCompressing(false);
+
+      const aiResponse = await analyzeItem(uploadResult.downloadUrl);
+
+      if (!isMounted.current || analysisTimedOut.current) {
+        return;
+      }
+
+      setIsAnalyzing(false);
+
+      if (aiResponse.success && aiResponse.data) {
+        navigateToReviewForm(
+          finalCompressedUri,
+          aiResponse.data,
+          uploadResult.storagePath,
+          uploadResult.downloadUrl,
+        );
+        return;
+      }
+
+      console.warn(
+        "AI retry failed",
+        aiResponse.error?.code,
+        aiResponse.error?.message,
+      );
+      setAnalysisError(true);
+      setShowErrorSnackbar(true);
+    } catch (error) {
+      console.warn("Retry analysis failed", error);
+
+      if (!isMounted.current) {
+        return;
+      }
+
+      setIsCompressing(false);
+      setIsAnalyzing(false);
+
+      if (!analysisTimedOut.current) {
+        setAnalysisError(true);
+        setShowErrorSnackbar(true);
+      }
+    }
+  }, [capturedImageUri, hasUploadedData, navigateToReviewForm, user]);
 
   const handleUsePhoto = useCallback(async () => {
     if (
@@ -139,8 +275,12 @@ export default function CameraScreen() {
 
     analysisTimedOut.current = false;
     processingData.current = {};
+    setAnalysisError(false);
+    setShowErrorSnackbar(false);
+    setHasUploadedData(false);
 
     try {
+      setIsAnalyzing(true); // Start timeout protection immediately
       setIsCompressing(true);
       const compressed = await compressImage(capturedImageUri);
       processingData.current.compressedUri = compressed.uri;
@@ -156,14 +296,14 @@ export default function CameraScreen() {
       );
       processingData.current.storagePath = storagePath;
       processingData.current.downloadUrl = downloadUrl;
+      setHasUploadedData(true);
 
       if (!isMounted.current || analysisTimedOut.current) {
         return;
       }
 
-      // Start analyzing state (and its timeout) only AFTER upload completes
+      // Upload complete, transition to purely analysis phase
       setIsCompressing(false);
-      setIsAnalyzing(true);
 
       const aiResponse = await analyzeItem(downloadUrl);
 
@@ -183,7 +323,13 @@ export default function CameraScreen() {
         return;
       }
 
-      navigateToReviewForm(compressed.uri, undefined, storagePath, downloadUrl);
+      console.warn(
+        "AI analysis failed",
+        aiResponse.error?.code,
+        aiResponse.error?.message,
+      );
+      setAnalysisError(true);
+      setShowErrorSnackbar(true);
     } catch (error) {
       console.warn("Image analysis flow failed", error);
 
@@ -195,14 +341,8 @@ export default function CameraScreen() {
       setIsAnalyzing(false);
 
       if (!analysisTimedOut.current) {
-        const { compressedUri, storagePath, downloadUrl } =
-          processingData.current;
-        navigateToReviewForm(
-          compressedUri || capturedImageUri,
-          undefined,
-          storagePath,
-          downloadUrl,
-        );
+        setAnalysisError(true);
+        setShowErrorSnackbar(true);
       }
     }
   }, [
@@ -215,6 +355,13 @@ export default function CameraScreen() {
 
   const handleRetake = useCallback(() => {
     setCapturedImageUri(null);
+    setAnalysisError(false);
+    setShowErrorSnackbar(false);
+    setHasUploadedData(false);
+    setIsAnalyzing(false);
+    setIsCompressing(false);
+    analysisTimedOut.current = false;
+    processingData.current = {};
   }, []);
 
   const handleRequestPermission = useCallback(() => {
@@ -408,6 +555,50 @@ export default function CameraScreen() {
           onTimeout={handleAnalysisTimeout}
         />
 
+        {analysisError && !isAnalyzing ? (
+          <View
+            style={styles.errorOverlay}
+            testID="analysis-error-state"
+            accessibilityLabel="AI analysis failed"
+            accessibilityRole="alert"
+          >
+            <IconButton
+              icon="alert-circle-outline"
+              size={48}
+              iconColor={theme.colors.error}
+              testID="analysis-error-icon"
+              accessibilityLabel="Error icon"
+            />
+            <Text style={styles.errorMessage} testID="analysis-error-message">
+              Couldn't analyze image.{"\n"}Fill in details manually or retry.
+            </Text>
+            <View style={styles.errorActions}>
+              <Button
+                mode="contained"
+                onPress={() => {
+                  void handleRetryAnalysis();
+                }}
+                style={styles.retryButton}
+                contentStyle={styles.previewButtonContent}
+                testID="analysis-retry-button"
+                accessibilityLabel="Try again"
+              >
+                Try Again
+              </Button>
+              <Button
+                mode="outlined"
+                onPress={handleFillManually}
+                style={styles.fillManuallyButton}
+                contentStyle={styles.previewButtonContent}
+                testID="analysis-fill-manually-button"
+                accessibilityLabel="Fill in manually"
+              >
+                Fill Manually
+              </Button>
+            </View>
+          </View>
+        ) : null}
+
         <IconButton
           icon="close"
           size={24}
@@ -423,48 +614,63 @@ export default function CameraScreen() {
           accessibilityLabel="Close camera"
         />
 
-        <View
-          style={[
-            styles.previewActions,
-            { paddingBottom: insets.bottom + theme.spacing.space4 },
-          ]}
+        {!isAnalyzing ? (
+          <View
+            style={[
+              styles.previewActions,
+              { paddingBottom: insets.bottom + theme.spacing.space4 },
+            ]}
+          >
+            <Button
+              mode="outlined"
+              onPress={handleRetake}
+              disabled={isCompressing || isAnalyzing}
+              style={styles.previewButton}
+              contentStyle={styles.previewButtonContent}
+              testID="camera-retake"
+              accessibilityLabel="Retake photo"
+            >
+              Retake
+            </Button>
+
+            {!analysisError ? (
+              <Button
+                mode="contained"
+                onPress={() => {
+                  void handleUsePhoto();
+                }}
+                disabled={isCompressing || isAnalyzing}
+                style={styles.previewButton}
+                contentStyle={styles.previewButtonContent}
+                testID="camera-use-photo"
+                accessibilityLabel="Use photo"
+              >
+                {isCompressing || isAnalyzing ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={theme.colors.onPrimary}
+                    testID="camera-compressing-indicator"
+                    accessibilityLabel={
+                      isCompressing ? "Compressing image" : "Analyzing image"
+                    }
+                  />
+                ) : (
+                  "Use Photo"
+                )}
+              </Button>
+            ) : null}
+          </View>
+        ) : null}
+
+        <Snackbar
+          visible={showErrorSnackbar}
+          onDismiss={() => setShowErrorSnackbar(false)}
+          duration={SNACKBAR_DURATION_MS}
+          style={styles.snackbar}
+          testID="analysis-error-snackbar"
         >
-          <Button
-            mode="outlined"
-            onPress={handleRetake}
-            disabled={isCompressing || isAnalyzing}
-            style={styles.previewButton}
-            contentStyle={styles.previewButtonContent}
-            testID="camera-retake"
-            accessibilityLabel="Retake photo"
-          >
-            Retake
-          </Button>
-          <Button
-            mode="contained"
-            onPress={() => {
-              void handleUsePhoto();
-            }}
-            disabled={isCompressing || isAnalyzing}
-            style={styles.previewButton}
-            contentStyle={styles.previewButtonContent}
-            testID="camera-use-photo"
-            accessibilityLabel="Use photo"
-          >
-            {isCompressing || isAnalyzing ? (
-              <ActivityIndicator
-                size="small"
-                color={theme.colors.onPrimary}
-                testID="camera-compressing-indicator"
-                accessibilityLabel={
-                  isCompressing ? "Compressing image" : "Analyzing image"
-                }
-              />
-            ) : (
-              "Use Photo"
-            )}
-          </Button>
-        </View>
+          Couldn't analyze image. Fill in details manually or retry.
+        </Snackbar>
       </View>
     );
   }
@@ -638,6 +844,33 @@ const styles = StyleSheet.create({
   },
   previewButtonContent: {
     minHeight: 44,
+  },
+  errorOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(15, 15, 19, 0.85)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+    padding: theme.spacing.space4,
+  },
+  errorMessage: {
+    ...theme.typography.bodyLarge,
+    color: theme.colors.onBackground,
+    textAlign: "center",
+    marginBottom: theme.spacing.space4,
+  },
+  errorActions: {
+    width: "100%",
+    gap: theme.spacing.space3,
+  },
+  retryButton: {
+    borderRadius: theme.borderRadius.buttons,
+  },
+  fillManuallyButton: {
+    borderRadius: theme.borderRadius.buttons,
+  },
+  snackbar: {
+    backgroundColor: theme.colors.surface,
   },
   galleryPermissionOverlay: {
     ...StyleSheet.absoluteFillObject,
