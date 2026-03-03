@@ -52,7 +52,10 @@ async function compressWithQuality(
   quality: number,
 ) {
   const context = ImageManipulator.manipulate(uri);
-  context.resize(resize);
+
+  if (resize.width || resize.height) {
+    context.resize(resize);
+  }
 
   const imageRef = await context.renderAsync();
   return imageRef.saveAsync({
@@ -72,7 +75,10 @@ export async function compressImage(
       const result = await compressWithQuality(uri, resizeAction, quality);
       const fileSize = readFileSize(result.uri);
 
-      if (fileSize <= MAX_IMAGE_SIZE_BYTES || quality === COMPRESSION_QUALITIES[COMPRESSION_QUALITIES.length - 1]) {
+      if (
+        fileSize <= MAX_IMAGE_SIZE_BYTES ||
+        quality === COMPRESSION_QUALITIES[COMPRESSION_QUALITIES.length - 1]
+      ) {
         return {
           uri: result.uri,
           width: result.width,

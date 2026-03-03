@@ -8,6 +8,8 @@ import {
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
+import type { AnalyzeItemResponseData } from "@/types/api.types";
+
 export type DashboardStackParamList = {
   ItemList: undefined;
   ItemDetail: { itemId: string };
@@ -22,7 +24,12 @@ export type RootTabParamList = {
 export type RootStackParamList = {
   Main: NavigatorScreenParams<RootTabParamList>;
   Camera: undefined;
-  ReviewForm: { imageUri: string };
+  ReviewForm: {
+    imageUri: string;
+    aiResult?: AnalyzeItemResponseData;
+    storagePath?: string;
+    downloadUrl?: string;
+  };
 };
 
 export type RootStackNavigationProp =

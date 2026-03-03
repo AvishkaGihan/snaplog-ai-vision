@@ -14,9 +14,13 @@ import * as ImagePicker from "expo-image-picker";
 import { ActivityIndicator, Button, IconButton } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { PermissionCard } from "@/components";
+import { PermissionCard, ScanLoadingOverlay } from "@/components";
 import { theme } from "@/constants/theme";
+import { analyzeItem } from "@/services/aiService";
 import { compressImage } from "@/services/imageService";
+import { uploadItemImage } from "@/services/storageService";
+import { useAuthStore } from "@/stores/useAuthStore";
+import type { AnalyzeItemResponseData } from "@/types/api.types";
 import { useRootStackNavigation } from "@/types/navigation.types";
 
 export default function CameraScreen() {
@@ -27,12 +31,20 @@ export default function CameraScreen() {
   const [cameraReady, setCameraReady] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
   const [showGalleryPermission, setShowGalleryPermission] = useState(false);
   const showGalleryPermissionRef = useRef(false);
   const isMounted = useRef(true);
   const isNavigating = useRef(false);
+  const analysisTimedOut = useRef(false);
+  const processingData = useRef<{
+    compressedUri?: string;
+    storagePath?: string;
+    downloadUrl?: string;
+  }>({});
   const appState = useRef(AppState.currentState);
+  const user = useAuthStore((state) => state.user);
 
   useEffect(() => {
     isMounted.current = true;
@@ -69,9 +81,19 @@ export default function CameraScreen() {
   }, [cameraReady, isCapturing]);
 
   const navigateToReviewForm = useCallback(
-    (imageUri: string) => {
+    (
+      imageUri: string,
+      aiResult?: AnalyzeItemResponseData,
+      storagePath?: string,
+      downloadUrl?: string,
+    ) => {
       isNavigating.current = true;
-      navigation.navigate("ReviewForm", { imageUri });
+      navigation.navigate("ReviewForm", {
+        imageUri,
+        aiResult,
+        storagePath,
+        downloadUrl,
+      });
 
       setTimeout(() => {
         if (isMounted.current) {
@@ -82,56 +104,114 @@ export default function CameraScreen() {
     [navigation],
   );
 
-  const handleUsePhoto = useCallback(async () => {
-    if (!capturedImageUri || isNavigating.current || isCompressing) {
+  const handleAnalysisTimeout = useCallback(() => {
+    if (!capturedImageUri || isNavigating.current || analysisTimedOut.current) {
       return;
     }
+
+    analysisTimedOut.current = true;
+    setIsAnalyzing(false);
+    setIsCompressing(false);
+
+    const { compressedUri, storagePath, downloadUrl } = processingData.current;
+    navigateToReviewForm(
+      compressedUri || capturedImageUri,
+      undefined,
+      storagePath,
+      downloadUrl,
+    );
+  }, [capturedImageUri, navigateToReviewForm]);
+
+  const handleUsePhoto = useCallback(async () => {
+    if (
+      !capturedImageUri ||
+      isNavigating.current ||
+      isCompressing ||
+      isAnalyzing
+    ) {
+      return;
+    }
+
+    if (!user?.uid) {
+      Alert.alert("Not Signed In", "You must be signed in to analyze items.");
+      return;
+    }
+
+    analysisTimedOut.current = false;
+    processingData.current = {};
 
     try {
       setIsCompressing(true);
       const compressed = await compressImage(capturedImageUri);
+      processingData.current.compressedUri = compressed.uri;
 
       if (!isMounted.current) {
         return;
       }
 
-      navigateToReviewForm(compressed.uri);
-    } catch (error) {
-      console.warn("Failed to compress image", error);
-
-      if (!isMounted.current) {
-        return;
-      }
-
-      Alert.alert(
-        "Compression Failed",
-        "Couldn't compress the image. Retry, or continue with the original photo.",
-        [
-          {
-            text: "Retry",
-            onPress: () => {
-              void handleUsePhoto();
-            },
-          },
-          {
-            text: "Use Original",
-            onPress: () => {
-              if (!capturedImageUri) {
-                return;
-              }
-
-              navigateToReviewForm(capturedImageUri);
-            },
-          },
-          { text: "Cancel", style: "cancel" },
-        ],
+      // Keep isCompressing=true during upload so button stays disabled
+      const { downloadUrl, storagePath } = await uploadItemImage(
+        compressed.uri,
+        user.uid,
       );
-    } finally {
-      if (isMounted.current) {
-        setIsCompressing(false);
+      processingData.current.storagePath = storagePath;
+      processingData.current.downloadUrl = downloadUrl;
+
+      if (!isMounted.current || analysisTimedOut.current) {
+        return;
+      }
+
+      // Start analyzing state (and its timeout) only AFTER upload completes
+      setIsCompressing(false);
+      setIsAnalyzing(true);
+
+      const aiResponse = await analyzeItem(downloadUrl);
+
+      if (!isMounted.current || analysisTimedOut.current) {
+        return;
+      }
+
+      setIsAnalyzing(false);
+
+      if (aiResponse.success && aiResponse.data) {
+        navigateToReviewForm(
+          compressed.uri,
+          aiResponse.data,
+          storagePath,
+          downloadUrl,
+        );
+        return;
+      }
+
+      navigateToReviewForm(compressed.uri, undefined, storagePath, downloadUrl);
+    } catch (error) {
+      console.warn("Image analysis flow failed", error);
+
+      if (!isMounted.current) {
+        return;
+      }
+
+      setIsCompressing(false);
+      setIsAnalyzing(false);
+
+      if (!analysisTimedOut.current) {
+        const { compressedUri, storagePath, downloadUrl } =
+          processingData.current;
+        navigateToReviewForm(
+          compressedUri || capturedImageUri,
+          undefined,
+          storagePath,
+          downloadUrl,
+        );
       }
     }
-  }, [capturedImageUri, isCompressing, navigateToReviewForm]);
+  }, [
+    capturedImageUri,
+    isAnalyzing,
+    isCompressing,
+    navigateToReviewForm,
+    user,
+  ]);
 
   const handleRetake = useCallback(() => {
     setCapturedImageUri(null);
@@ -323,6 +403,11 @@ export default function CameraScreen() {
           accessibilityLabel="Captured photo preview"
         />
 
+        <ScanLoadingOverlay
+          visible={isAnalyzing}
+          onTimeout={handleAnalysisTimeout}
+        />
+
         <IconButton
           icon="close"
           size={24}
@@ -347,7 +432,7 @@ export default function CameraScreen() {
           <Button
             mode="outlined"
             onPress={handleRetake}
-            disabled={isCompressing}
+            disabled={isCompressing || isAnalyzing}
             style={styles.previewButton}
             contentStyle={styles.previewButtonContent}
             testID="camera-retake"
@@ -360,18 +445,20 @@ export default function CameraScreen() {
             onPress={() => {
               void handleUsePhoto();
             }}
-            disabled={isCompressing}
+            disabled={isCompressing || isAnalyzing}
             style={styles.previewButton}
             contentStyle={styles.previewButtonContent}
             testID="camera-use-photo"
             accessibilityLabel="Use photo"
           >
-            {isCompressing ? (
+            {isCompressing || isAnalyzing ? (
               <ActivityIndicator
                 size="small"
                 color={theme.colors.onPrimary}
                 testID="camera-compressing-indicator"
-                accessibilityLabel="Compressing image"
+                accessibilityLabel={
+                  isCompressing ? "Compressing image" : "Analyzing image"
+                }
               />
             ) : (
               "Use Photo"
