@@ -59,7 +59,7 @@ development_status:
   3-2-rate-limiting-and-error-logging: done
   3-3-ai-service-client-and-loading-experience: done
   3-4-ai-failure-handling-and-manual-entry-fallback: done
-  epic-3-retrospective: optional
+  epic-3-retrospective: done
 
   epic-4: backlog
   4-1-review-form-screen: backlog
