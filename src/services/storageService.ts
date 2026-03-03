@@ -1,4 +1,4 @@
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { getDownloadURL, ref, uploadBytes, deleteObject } from "firebase/storage";
 
 import { storage } from "@/services/firebaseConfig";
 
@@ -27,5 +27,14 @@ export async function uploadItemImage(
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     throw new Error(`Failed to upload image to Cloud Storage: ${message}`);
+  }
+}
+
+export async function deleteItemImage(storagePath: string): Promise<void> {
+  try {
+    const storageRef = ref(storage, storagePath);
+    await deleteObject(storageRef);
+  } catch (error) {
+    console.warn(`Failed to delete item image at ${storagePath}:`, error);
   }
 }
