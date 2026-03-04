@@ -1,4 +1,10 @@
-import { collection, doc, setDoc, Timestamp } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  setDoc,
+  Timestamp,
+  updateDoc,
+} from "firebase/firestore";
 
 import { db } from "@/services/firebaseConfig";
 import type { ItemDocument } from "@/types/item.types";
@@ -23,5 +29,22 @@ export async function saveItem(
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     throw new Error(`Failed to save item to Firestore: ${message}`);
+  }
+}
+
+export async function updateItem(
+  userId: string,
+  itemId: string,
+  updates: Partial<Omit<ItemDocument, "id">>,
+): Promise<void> {
+  try {
+    const itemRef = doc(db, "users", userId, "items", itemId);
+    await updateDoc(itemRef, {
+      ...updates,
+      updatedAt: Timestamp.now(),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    throw new Error(`Failed to update item in Firestore: ${message}`);
   }
 }

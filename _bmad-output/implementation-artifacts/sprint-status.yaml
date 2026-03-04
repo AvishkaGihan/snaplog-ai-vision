@@ -65,7 +65,7 @@ development_status:
   4-1-review-form-screen: done
   4-2-confirm-and-save-item-to-cloud: done
   4-3-discard-scan-and-cancel-flow: done
-  4-4-edit-existing-item: backlog
+  4-4-edit-existing-item: done
   4-5-delete-item: backlog
   epic-4-retrospective: optional
 
