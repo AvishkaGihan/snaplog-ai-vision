@@ -1,5 +1,6 @@
 import {
   collection,
+  deleteDoc,
   doc,
   setDoc,
   Timestamp,
@@ -46,5 +47,18 @@ export async function updateItem(
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     throw new Error(`Failed to update item in Firestore: ${message}`);
+  }
+}
+
+export async function deleteItem(
+  userId: string,
+  itemId: string,
+): Promise<void> {
+  try {
+    const itemRef = doc(db, "users", userId, "items", itemId);
+    await deleteDoc(itemRef);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    throw new Error(`Failed to delete item from Firestore: ${message}`);
   }
 }
