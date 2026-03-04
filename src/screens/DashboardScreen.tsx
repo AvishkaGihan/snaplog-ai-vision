@@ -1,18 +1,31 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Animated,
   FlatList,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   View,
 } from "react-native";
-import { FAB, Snackbar } from "react-native-paper";
+import { FAB, Searchbar, Snackbar, Text } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import CategoryChip from "@/components/CategoryChip";
 import EmptyStateCard from "@/components/EmptyStateCard";
 import ItemCard, { ITEM_CARD_HEIGHT } from "@/components/ItemCard";
-import { ITEM_THUMBNAIL_SIZE, SNACKBAR_DURATION_MS } from "@/constants/config";
+import {
+  ITEM_THUMBNAIL_SIZE,
+  SEARCH_DEBOUNCE_MS,
+  SNACKBAR_DURATION_MS,
+} from "@/constants/config";
 import { theme } from "@/constants/theme";
+import { useDebounce } from "@/hooks/useDebounce";
 import { fetchItems } from "@/services/firestoreService";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useItemStore } from "@/stores/useItemStore";
@@ -24,7 +37,59 @@ import type { ItemDocument } from "@/types/item.types";
 
 const SKELETON_COUNT = 3;
 const ITEM_SEPARATOR_HEIGHT = theme.spacing.space2;
-const ITEM_LIST_ROW_HEIGHT = ITEM_CARD_HEIGHT + ITEM_SEPARATOR_HEIGHT;
+
+function SearchEmptyState({
+  searchQuery,
+  categoryFilter,
+  onClearSearch,
+  onClearFilter,
+}: {
+  searchQuery: string;
+  categoryFilter: string | null;
+  onClearSearch: () => void;
+  onClearFilter: () => void;
+}) {
+  const hasSearchQuery = searchQuery.length > 0;
+  const hasCategoryFilter = categoryFilter !== null;
+
+  return (
+    <View
+      style={styles.searchEmptyState}
+      accessibilityRole="alert"
+      testID="search-empty-state"
+    >
+      <Text style={styles.searchEmptyText}>
+        {hasSearchQuery && !hasCategoryFilter
+          ? `No items found for '${searchQuery}'`
+          : hasCategoryFilter && !hasSearchQuery
+            ? "No items in this category"
+            : `No items found for '${searchQuery}' in this category`}
+      </Text>
+      {hasSearchQuery ? (
+        <Text
+          style={styles.clearLink}
+          onPress={onClearSearch}
+          testID="clear-search-link"
+          accessibilityLabel="Clear search"
+          accessibilityRole="link"
+        >
+          Clear search
+        </Text>
+      ) : null}
+      {hasCategoryFilter ? (
+        <Text
+          style={styles.clearLink}
+          onPress={onClearFilter}
+          testID="clear-filter-link"
+          accessibilityLabel="Clear filter"
+          accessibilityRole="link"
+        >
+          Clear filter
+        </Text>
+      ) : null}
+    </View>
+  );
+}
 
 function DashboardSkeleton({
   shimmerOpacity,
@@ -59,11 +124,44 @@ export default function DashboardScreen() {
   const userId = useAuthStore((state) => state.user?.uid);
   const items = useItemStore((state) => state.items);
   const isLoading = useItemStore((state) => state.isLoading);
+  const searchQuery = useItemStore((state) => state.searchQuery);
+  const categoryFilter = useItemStore((state) => state.categoryFilter);
 
   const [refreshing, setRefreshing] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
+  const [searchText, setSearchText] = useState(searchQuery);
   const shimmerAnim = useRef(new Animated.Value(0.3)).current;
+  const debouncedSearchText = useDebounce(searchText, SEARCH_DEBOUNCE_MS);
+
+  const categories = useMemo(() => {
+    const unique = new Set(
+      items
+        .map((item) => item.category.trim())
+        .filter((category) => category.length > 0),
+    );
+    return Array.from(unique).sort((a, b) => a.localeCompare(b));
+  }, [items]);
+
+  const filteredItems = useMemo(() => {
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+
+    return items.filter((item) => {
+      const title = item.title.toLowerCase();
+      const category = item.category.toLowerCase();
+
+      const matchesSearch =
+        normalizedSearch.length === 0 ||
+        title.includes(normalizedSearch) ||
+        category.includes(normalizedSearch);
+      const matchesCategory =
+        categoryFilter === null || item.category.trim() === categoryFilter;
+
+      return matchesSearch && matchesCategory;
+    });
+  }, [categoryFilter, items, searchQuery]);
+
+  const isFilterActive = searchQuery.length > 0 || categoryFilter !== null;
 
   useEffect(() => {
     const animation = Animated.loop(
@@ -87,6 +185,10 @@ export default function DashboardScreen() {
       animation.stop();
     };
   }, [shimmerAnim]);
+
+  useEffect(() => {
+    useItemStore.getState().setSearchQuery(debouncedSearchText.trim());
+  }, [debouncedSearchText]);
 
   const fetchDashboardItems = useCallback(async () => {
     if (!userId) {
@@ -147,6 +249,81 @@ export default function DashboardScreen() {
     [navigation],
   );
 
+  const onClearSearch = useCallback(() => {
+    setSearchText("");
+    useItemStore.getState().setSearchQuery("");
+  }, []);
+
+  const onClearFilter = useCallback(() => {
+    useItemStore.getState().setCategoryFilter(null);
+  }, []);
+
+  const listEmptyComponent = useMemo(() => {
+    if (!isFilterActive) {
+      return <EmptyStateCard />;
+    }
+
+    return (
+      <SearchEmptyState
+        searchQuery={searchQuery}
+        categoryFilter={categoryFilter}
+        onClearSearch={onClearSearch}
+        onClearFilter={onClearFilter}
+      />
+    );
+  }, [
+    categoryFilter,
+    isFilterActive,
+    onClearFilter,
+    onClearSearch,
+    searchQuery,
+  ]);
+
+  const listHeaderComponent = useMemo(
+    () => (
+      <View style={styles.headerContainer}>
+        <Searchbar
+          placeholder="Search items..."
+          value={searchText}
+          onChangeText={setSearchText}
+          onClearIconPress={onClearSearch}
+          style={styles.searchBar}
+          inputStyle={styles.searchBarInput}
+          iconColor={theme.colors.onSurface}
+          placeholderTextColor={theme.colors.outline}
+          testID="search-bar"
+          accessibilityLabel="Search items"
+        />
+        {categories.length > 0 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.chipRow}
+            testID="category-chip-row"
+            accessibilityLabel="Category filters"
+          >
+            {categories.map((category) => (
+              <CategoryChip
+                key={category}
+                category={category}
+                selected={categoryFilter === category}
+                onPress={() =>
+                  useItemStore
+                    .getState()
+                    .setCategoryFilter(
+                      categoryFilter === category ? null : category,
+                    )
+                }
+              />
+            ))}
+          </ScrollView>
+        ) : null}
+      </View>
+    ),
+    [categories, categoryFilter, onClearSearch, searchText],
+  );
+
   return (
     <View
       style={styles.screen}
@@ -157,22 +334,21 @@ export default function DashboardScreen() {
         <DashboardSkeleton shimmerOpacity={shimmerAnim} />
       ) : (
         <FlatList
-          data={items}
+          data={filteredItems}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
-          getItemLayout={(_, index) => ({
-            length: ITEM_LIST_ROW_HEIGHT,
-            offset: ITEM_LIST_ROW_HEIGHT * index,
-            index,
-          })}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
-          ListEmptyComponent={EmptyStateCard}
+          ListHeaderComponent={listHeaderComponent}
+          ListEmptyComponent={listEmptyComponent}
           contentContainerStyle={[
             styles.listContent,
             {
               paddingTop: insets.top + theme.spacing.space4,
               paddingBottom:
-                insets.bottom + theme.spacing.space4 + theme.spacing.space8 + theme.spacing.space6,
+                insets.bottom +
+                theme.spacing.space4 +
+                theme.spacing.space8 +
+                theme.spacing.space6,
             },
             { flexGrow: 1 },
           ]}
@@ -184,6 +360,7 @@ export default function DashboardScreen() {
             />
           }
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
           testID="dashboard-item-list"
           accessibilityLabel="Dashboard item list"
         />
@@ -226,8 +403,41 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: theme.spacing.space4,
   },
+  headerContainer: {
+    gap: theme.spacing.space2,
+    marginBottom: theme.spacing.space3,
+  },
+  searchBar: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.inputs,
+  },
+  searchBarInput: {
+    ...theme.typography.bodyMedium,
+    color: theme.colors.onBackground,
+  },
+  chipRow: {
+    gap: theme.spacing.space2,
+    paddingVertical: theme.spacing.space1,
+  },
   separator: {
     height: ITEM_SEPARATOR_HEIGHT,
+  },
+  searchEmptyState: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: theme.spacing.space8,
+    gap: theme.spacing.space3,
+  },
+  searchEmptyText: {
+    ...theme.typography.bodyMedium,
+    color: theme.colors.onSurface,
+    textAlign: "center",
+  },
+  clearLink: {
+    ...theme.typography.labelLarge,
+    color: theme.colors.primary,
+    textAlign: "center",
   },
   fab: {
     position: "absolute",
