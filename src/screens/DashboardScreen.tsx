@@ -1,14 +1,165 @@
-import React from "react";
-import { View, StyleSheet } from "react-native";
-import { FAB, Text } from "react-native-paper";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  Animated,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  View,
+} from "react-native";
+import { FAB, Snackbar, Text } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import ItemCard, { ITEM_CARD_HEIGHT } from "@/components/ItemCard";
+import { ITEM_THUMBNAIL_SIZE, SNACKBAR_DURATION_MS } from "@/constants/config";
 import { theme } from "@/constants/theme";
-import { useRootStackNavigation } from "@/types/navigation.types";
+import { fetchItems } from "@/services/firestoreService";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { useItemStore } from "@/stores/useItemStore";
+import {
+  useDashboardNavigation,
+  useRootStackNavigation,
+} from "@/types/navigation.types";
+import type { ItemDocument } from "@/types/item.types";
+
+const SKELETON_COUNT = 3;
+const ITEM_SEPARATOR_HEIGHT = theme.spacing.space2;
+const ITEM_LIST_ROW_HEIGHT = ITEM_CARD_HEIGHT + ITEM_SEPARATOR_HEIGHT;
+
+function DashboardSkeleton({
+  shimmerOpacity,
+}: {
+  shimmerOpacity: Animated.Value;
+}) {
+  return (
+    <View style={styles.skeletonContainer}>
+      {Array.from({ length: SKELETON_COUNT }).map((_, index) => (
+        <View key={`dashboard-skeleton-${index}`} style={styles.skeletonCard}>
+          <Animated.View
+            style={[styles.skeletonThumbnail, { opacity: shimmerOpacity }]}
+          />
+          <View style={styles.skeletonContent}>
+            <Animated.View
+              style={[styles.skeletonTitle, { opacity: shimmerOpacity }]}
+            />
+            <Animated.View
+              style={[styles.skeletonChip, { opacity: shimmerOpacity }]}
+            />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
 
 export default function DashboardScreen() {
-  const navigation = useRootStackNavigation();
+  const rootNavigation = useRootStackNavigation();
+  const navigation = useDashboardNavigation();
   const insets = useSafeAreaInsets();
+  const userId = useAuthStore((state) => state.user?.uid);
+  const items = useItemStore((state) => state.items);
+  const isLoading = useItemStore((state) => state.isLoading);
+
+  const [refreshing, setRefreshing] = useState(false);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+  const shimmerAnim = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmerAnim, {
+          toValue: 0.3,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    animation.start();
+
+    return () => {
+      animation.stop();
+    };
+  }, [shimmerAnim]);
+
+  const fetchDashboardItems = useCallback(async () => {
+    if (!userId) {
+      useItemStore.getState().setItems([]);
+      return;
+    }
+
+    useItemStore.getState().setLoading(true);
+
+    try {
+      const fetchedItems = await fetchItems(userId);
+      useItemStore.getState().setItems(fetchedItems);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to load dashboard items";
+      setSnackbarMessage(message);
+      setSnackbarVisible(true);
+    } finally {
+      useItemStore.getState().setLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    void fetchDashboardItems();
+  }, [fetchDashboardItems]);
+
+  const onRefresh = useCallback(async () => {
+    if (!userId) {
+      return;
+    }
+
+    setRefreshing(true);
+
+    try {
+      const fetchedItems = await fetchItems(userId);
+      useItemStore.getState().setItems(fetchedItems);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to refresh dashboard items";
+      setSnackbarMessage(message);
+      setSnackbarVisible(true);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [userId]);
+
+  const renderItem = useCallback(
+    ({ item }: { item: ItemDocument }) => (
+      <ItemCard
+        item={item}
+        onPress={() => navigation.navigate("ItemDetail", { itemId: item.id })}
+      />
+    ),
+    [navigation],
+  );
+
+  const emptyList = useMemo(
+    () => (
+      <View style={styles.emptyState}>
+        <Text style={styles.emptyStateText}>No items yet</Text>
+      </View>
+    ),
+    [],
+  );
 
   return (
     <View
@@ -16,11 +167,45 @@ export default function DashboardScreen() {
       testID="dashboard-screen"
       accessibilityLabel="Dashboard Screen"
     >
-      <Text style={styles.text}>Dashboard</Text>
+      {isLoading ? (
+        <DashboardSkeleton shimmerOpacity={shimmerAnim} />
+      ) : (
+        <FlatList
+          data={items}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          getItemLayout={(_, index) => ({
+            length: ITEM_LIST_ROW_HEIGHT,
+            offset: ITEM_LIST_ROW_HEIGHT * index,
+            index,
+          })}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          ListEmptyComponent={emptyList}
+          contentContainerStyle={[
+            styles.listContent,
+            {
+              paddingTop: insets.top,
+              paddingBottom:
+                insets.bottom + theme.spacing.space8 + theme.spacing.space6,
+            },
+            { flexGrow: 1 },
+          ]}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={theme.colors.primary}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+          testID="dashboard-item-list"
+          accessibilityLabel="Dashboard item list"
+        />
+      )}
 
       <FAB
         icon="camera"
-        onPress={() => navigation.navigate("Camera")}
+        onPress={() => rootNavigation.navigate("Camera")}
         style={[
           styles.fab,
           {
@@ -33,6 +218,16 @@ export default function DashboardScreen() {
         testID="scan-fab"
         accessibilityLabel="Scan item"
       />
+
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={SNACKBAR_DURATION_MS}
+        testID="dashboard-snackbar"
+        accessibilityLabel="Dashboard status notification"
+      >
+        {snackbarMessage}
+      </Snackbar>
     </View>
   );
 }
@@ -41,16 +236,63 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: theme.colors.background,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: theme.spacing.space4,
   },
-  text: {
-    color: theme.colors.onBackground,
+  listContent: {
+    padding: theme.spacing.space4,
+    // Add safe area inset in the padding formula in the render component or via hook if possible.
+    // However, since styles are static, we apply it inline via contentContainerStyle in the component.
+  },
+  separator: {
+    height: ITEM_SEPARATOR_HEIGHT,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: theme.spacing.space8,
+  },
+  emptyStateText: {
+    ...theme.typography.bodyLarge,
+    color: theme.colors.onSurface,
   },
   fab: {
     position: "absolute",
     backgroundColor: theme.colors.primary,
     borderRadius: theme.borderRadius.fab,
+  },
+  skeletonContainer: {
+    padding: theme.spacing.space4,
+    gap: theme.spacing.space2,
+  },
+  skeletonCard: {
+    minHeight: ITEM_CARD_HEIGHT,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.cards,
+    padding: theme.spacing.space2,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.space3,
+  },
+  skeletonThumbnail: {
+    width: ITEM_THUMBNAIL_SIZE,
+    height: ITEM_THUMBNAIL_SIZE,
+    borderRadius: theme.borderRadius.cards,
+    backgroundColor: theme.colors.surfaceVariant,
+  },
+  skeletonContent: {
+    flex: 1,
+    gap: theme.spacing.space2,
+  },
+  skeletonTitle: {
+    width: "70%",
+    height: theme.spacing.space4,
+    borderRadius: theme.borderRadius.buttons,
+    backgroundColor: theme.colors.surfaceVariant,
+  },
+  skeletonChip: {
+    width: "35%",
+    height: theme.spacing.space4,
+    borderRadius: theme.borderRadius.chips,
+    backgroundColor: theme.colors.surfaceVariant,
   },
 });
