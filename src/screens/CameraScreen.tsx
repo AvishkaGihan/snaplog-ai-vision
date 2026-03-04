@@ -24,8 +24,8 @@ import { PermissionCard, ScanLoadingOverlay } from "@/components";
 import { SNACKBAR_DURATION_MS } from "@/constants/config";
 import { theme } from "@/constants/theme";
 import { analyzeItem } from "@/services/aiService";
-import { compressImage } from "@/services/imageService";
-import { uploadItemImage } from "@/services/storageService";
+import { cleanupTempImage, compressImage } from "@/services/imageService";
+import { deleteItemImage, uploadItemImage } from "@/services/storageService";
 import { useAuthStore } from "@/stores/useAuthStore";
 import type { AnalyzeItemResponseData } from "@/types/api.types";
 import { useRootStackNavigation } from "@/types/navigation.types";
@@ -354,6 +354,16 @@ export default function CameraScreen() {
   ]);
 
   const handleRetake = useCallback(() => {
+    const { compressedUri, storagePath } = processingData.current;
+
+    if (compressedUri) {
+      void cleanupTempImage(compressedUri);
+    }
+
+    if (storagePath) {
+      void deleteItemImage(storagePath);
+    }
+
     setCapturedImageUri(null);
     setAnalysisError(false);
     setShowErrorSnackbar(false);
@@ -363,6 +373,33 @@ export default function CameraScreen() {
     analysisTimedOut.current = false;
     processingData.current = {};
   }, []);
+
+  const handleDiscard = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("beforeRemove", (e) => {
+      // Prevent back navigation if we are actively compressing or analyzing
+      if (isCompressing || isAnalyzing) {
+        e.preventDefault();
+        return;
+      }
+
+      // If heading back normally (hardware back or handleDiscard's goBack), perform cleanup
+      if (e.data.action.type === "GO_BACK") {
+        const { compressedUri, storagePath } = processingData.current;
+        if (compressedUri) {
+          void cleanupTempImage(compressedUri);
+        }
+        if (storagePath) {
+          void deleteItemImage(storagePath);
+        }
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, isCompressing, isAnalyzing]);
 
   const handleRequestPermission = useCallback(() => {
     requestPermission();
@@ -603,7 +640,8 @@ export default function CameraScreen() {
           icon="close"
           size={24}
           mode="contained"
-          onPress={() => navigation.goBack()}
+          disabled={isCompressing || isAnalyzing}
+          onPress={handleDiscard}
           style={[
             styles.closeButton,
             { top: insets.top + theme.spacing.space2 },
@@ -694,7 +732,8 @@ export default function CameraScreen() {
         icon="close"
         size={24}
         mode="contained"
-        onPress={() => navigation.goBack()}
+        disabled={!cameraReady || isCapturing}
+        onPress={handleDiscard}
         style={[styles.closeButton, { top: insets.top + theme.spacing.space2 }]}
         iconColor={theme.colors.onBackground}
         containerColor={theme.colors.surface}

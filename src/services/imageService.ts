@@ -94,3 +94,18 @@ export async function compressImage(
     throw new Error("Failed to compress image for upload");
   }
 }
+
+export async function cleanupTempImage(uri?: string | null): Promise<void> {
+  if (!uri) {
+    return;
+  }
+
+  try {
+    const file = new File(uri);
+    if (file.exists) {
+      await file.delete();
+    }
+  } catch (error) {
+    console.warn("Failed to clean up temp image:", uri, error);
+  }
+}
