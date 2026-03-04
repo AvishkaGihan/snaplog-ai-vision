@@ -1,10 +1,4 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   FlatList,
@@ -12,9 +6,10 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import { FAB, Snackbar, Text } from "react-native-paper";
+import { FAB, Snackbar } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import EmptyStateCard from "@/components/EmptyStateCard";
 import ItemCard, { ITEM_CARD_HEIGHT } from "@/components/ItemCard";
 import { ITEM_THUMBNAIL_SIZE, SNACKBAR_DURATION_MS } from "@/constants/config";
 import { theme } from "@/constants/theme";
@@ -152,15 +147,6 @@ export default function DashboardScreen() {
     [navigation],
   );
 
-  const emptyList = useMemo(
-    () => (
-      <View style={styles.emptyState}>
-        <Text style={styles.emptyStateText}>No items yet</Text>
-      </View>
-    ),
-    [],
-  );
-
   return (
     <View
       style={styles.screen}
@@ -180,13 +166,13 @@ export default function DashboardScreen() {
             index,
           })}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
-          ListEmptyComponent={emptyList}
+          ListEmptyComponent={EmptyStateCard}
           contentContainerStyle={[
             styles.listContent,
             {
-              paddingTop: insets.top,
+              paddingTop: insets.top + theme.spacing.space4,
               paddingBottom:
-                insets.bottom + theme.spacing.space8 + theme.spacing.space6,
+                insets.bottom + theme.spacing.space4 + theme.spacing.space8 + theme.spacing.space6,
             },
             { flexGrow: 1 },
           ]}
@@ -238,22 +224,10 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   listContent: {
-    padding: theme.spacing.space4,
-    // Add safe area inset in the padding formula in the render component or via hook if possible.
-    // However, since styles are static, we apply it inline via contentContainerStyle in the component.
+    paddingHorizontal: theme.spacing.space4,
   },
   separator: {
     height: ITEM_SEPARATOR_HEIGHT,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: theme.spacing.space8,
-  },
-  emptyStateText: {
-    ...theme.typography.bodyLarge,
-    color: theme.colors.onSurface,
   },
   fab: {
     position: "absolute",

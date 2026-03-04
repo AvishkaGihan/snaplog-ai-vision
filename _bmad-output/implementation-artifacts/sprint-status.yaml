@@ -71,7 +71,7 @@ development_status:
 
   epic-5: in-progress
   5-1-dashboard-item-list: done
-  5-2-empty-state-and-first-run-experience: backlog
+  5-2-empty-state-and-first-run-experience: done
   5-3-search-and-filter-items: backlog
   5-4-item-detail-view: backlog
   epic-5-retrospective: optional
