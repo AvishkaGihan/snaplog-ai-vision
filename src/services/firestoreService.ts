@@ -2,6 +2,9 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
+  orderBy,
+  query,
   setDoc,
   Timestamp,
   updateDoc,
@@ -60,5 +63,25 @@ export async function deleteItem(
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     throw new Error(`Failed to delete item from Firestore: ${message}`);
+  }
+}
+
+export async function fetchItems(userId: string): Promise<ItemDocument[]> {
+  try {
+    const itemsRef = collection(db, "users", userId, "items");
+    const itemsQuery = query(itemsRef, orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(itemsQuery);
+    return snapshot.docs.map((itemDoc) => {
+      const data = itemDoc.data();
+      return {
+        ...data,
+        id: itemDoc.id,
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
+      };
+    }) as ItemDocument[];
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    throw new Error(`Failed to fetch items from Firestore: ${message}`);
   }
 }

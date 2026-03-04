@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import * as Haptics from "expo-haptics";
 import { Timestamp } from "firebase/firestore";
 import {
@@ -146,6 +152,7 @@ export default function ReviewFormScreen() {
 
         setSnackbarMessage("Item saved");
         setSnackbarVisible(true);
+        setIsSaving(false);
 
         setTimeout(() => {
           navigation.reset({ index: 0, routes: [{ name: "Main" }] });
