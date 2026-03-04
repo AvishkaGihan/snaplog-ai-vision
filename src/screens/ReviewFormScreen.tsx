@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as Haptics from "expo-haptics";
 import { Timestamp } from "firebase/firestore";
 import {
@@ -17,6 +17,7 @@ import { AIFieldBadge } from "@/components";
 import { SNACKBAR_DURATION_MS } from "@/constants/config";
 import { theme } from "@/constants/theme";
 import { saveItem } from "@/services/firestoreService";
+import { cleanupTempImage } from "@/services/imageService";
 import { deleteItemImage, uploadItemImage } from "@/services/storageService";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useItemStore } from "@/stores/useItemStore";
@@ -63,9 +64,33 @@ export default function ReviewFormScreen() {
 
   const isFormValid = title.trim().length > 0;
 
-  const handleBack = () => {
-    navigation.goBack();
-  };
+  const handleDiscard = useCallback(() => {
+    void cleanupTempImage(imageUri);
+
+    if (existingStoragePath) {
+      void deleteItemImage(existingStoragePath);
+    }
+
+    navigation.reset({ index: 0, routes: [{ name: "Main" }] });
+  }, [navigation, imageUri, existingStoragePath]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("beforeRemove", (e) => {
+      // Prevent back navigation if we are currently saving
+      if (isSaving) {
+        e.preventDefault();
+        return;
+      }
+
+      // If user uses hardware back or swipe back, ensure we run discard cleanup and reset
+      if (e.data.action.type === "GO_BACK") {
+        e.preventDefault();
+        handleDiscard();
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, isSaving, handleDiscard]);
 
   const handleConfirmSave = async () => {
     if (!isFormValid || isSaving) {
@@ -317,11 +342,12 @@ export default function ReviewFormScreen() {
 
         <Button
           mode="outlined"
-          onPress={handleBack}
+          onPress={handleDiscard}
+          disabled={isSaving}
           style={styles.backButton}
           contentStyle={styles.buttonContent}
           testID="review-form-back"
-          accessibilityLabel="Back to camera"
+          accessibilityLabel="Discard and return to dashboard"
         >
           Back
         </Button>
