@@ -54,20 +54,20 @@ development_status:
   2-4-image-compression-pipeline: done
   epic-2-retrospective: done
 
-  epic-3: in-progress
+  epic-3: done
   3-1-cloud-function-and-gemini-ai-integration: done
   3-2-rate-limiting-and-error-logging: done
   3-3-ai-service-client-and-loading-experience: done
   3-4-ai-failure-handling-and-manual-entry-fallback: done
   epic-3-retrospective: done
 
-  epic-4: in-progress
+  epic-4: done
   4-1-review-form-screen: done
   4-2-confirm-and-save-item-to-cloud: done
   4-3-discard-scan-and-cancel-flow: done
   4-4-edit-existing-item: done
   4-5-delete-item: done
-  epic-4-retrospective: optional
+  epic-4-retrospective: done
 
   epic-5: backlog
   5-1-dashboard-item-list: backlog
