@@ -74,7 +74,7 @@ development_status:
   5-2-empty-state-and-first-run-experience: done
   5-3-search-and-filter-items: done
   5-4-item-detail-view: done
-  epic-5-retrospective: optional
+  epic-5-retrospective: done
 
   epic-6: backlog
   6-1-network-status-detection-and-offline-banner: backlog
