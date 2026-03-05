@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import CategoryChip from "@/components/CategoryChip";
 import EmptyStateCard from "@/components/EmptyStateCard";
 import ItemCard, { ITEM_CARD_HEIGHT } from "@/components/ItemCard";
+import SyncStatusBar from "@/components/SyncStatusBar";
 import { OfflineBanner } from "@/components";
 import {
   ITEM_THUMBNAIL_SIZE,
@@ -150,7 +151,7 @@ export default function DashboardScreen() {
       imageUrl: draft.localImageUri,
       imagePath: "",
       aiGenerated: draft.item.aiGenerated ?? false,
-      syncStatus: "pending",
+      syncStatus: draft.syncStatus,
       createdAt: draft.createdAt,
       updatedAt: draft.createdAt,
     };
@@ -285,14 +286,31 @@ export default function DashboardScreen() {
     }
   }, [userId]);
 
+  const onItemPress = useCallback(
+    (item: ItemDocument) => {
+      if (item.syncStatus === "synced") {
+        navigation.navigate("ItemDetail", { itemId: item.id });
+        return;
+      }
+
+      const errorDraft = drafts.find(
+        (draft) => draft.localId === item.id && draft.syncStatus === "error",
+      );
+
+      if (errorDraft) {
+        useItemStore
+          .getState()
+          .updateDraftStatus(errorDraft.localId, "pending", 0);
+      }
+    },
+    [drafts, navigation],
+  );
+
   const renderItem = useCallback(
     ({ item }: { item: ItemDocument }) => (
-      <ItemCard
-        item={item}
-        onPress={() => navigation.navigate("ItemDetail", { itemId: item.id })}
-      />
+      <ItemCard item={item} onPress={() => onItemPress(item)} />
     ),
-    [navigation],
+    [onItemPress],
   );
 
   const onClearSearch = useCallback(() => {
@@ -377,6 +395,9 @@ export default function DashboardScreen() {
       accessibilityLabel="Dashboard Screen"
     >
       <OfflineBanner visible={!isOnline} />
+      <View style={styles.statusBarContainer}>
+        <SyncStatusBar />
+      </View>
       {isLoading ? (
         <DashboardSkeleton shimmerOpacity={shimmerAnim} />
       ) : (
@@ -446,6 +467,10 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  statusBarContainer: {
+    paddingHorizontal: theme.spacing.space4,
+    zIndex: 1,
   },
   listContent: {
     paddingHorizontal: theme.spacing.space4,

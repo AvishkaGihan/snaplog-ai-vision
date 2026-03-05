@@ -11,11 +11,12 @@ import { useShallow } from "zustand/react/shallow";
 import { RootNavigator } from "@/navigation";
 import { theme } from "@/constants/theme";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { useNetworkStatus } from "@/hooks";
+import { useNetworkStatus, useSync } from "@/hooks";
 
 enableScreens();
 
 function InitializedApp() {
+  useSync();
   return <RootNavigator />;
 }
 

@@ -8,6 +8,10 @@ interface ItemStore {
   items: ItemDocument[];
   drafts: LocalDraft[];
   isLoading: boolean;
+  isSyncing: boolean;
+  syncTotal: number;
+  syncCompleted: number;
+  syncComplete: boolean;
   searchQuery: string;
   categoryFilter: string | null;
   addItem: (item: ItemDocument) => void;
@@ -24,6 +28,12 @@ interface ItemStore {
   setSearchQuery: (query: string) => void;
   setCategoryFilter: (category: string | null) => void;
   setLoading: (loading: boolean) => void;
+  setSyncProgress: (progress: {
+    isSyncing: boolean;
+    syncTotal: number;
+    syncCompleted: number;
+    syncComplete: boolean;
+  }) => void;
 }
 
 export const useItemStore = create<ItemStore>()(
@@ -32,6 +42,10 @@ export const useItemStore = create<ItemStore>()(
       items: [],
       drafts: [],
       isLoading: false,
+      isSyncing: false,
+      syncTotal: 0,
+      syncCompleted: 0,
+      syncComplete: false,
       searchQuery: "",
       categoryFilter: null,
 
@@ -91,6 +105,15 @@ export const useItemStore = create<ItemStore>()(
 
       setLoading: (isLoading) => {
         set({ isLoading });
+      },
+
+      setSyncProgress: ({
+        isSyncing,
+        syncTotal,
+        syncCompleted,
+        syncComplete,
+      }) => {
+        set({ isSyncing, syncTotal, syncCompleted, syncComplete });
       },
     }),
     {
