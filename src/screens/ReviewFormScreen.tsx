@@ -84,6 +84,11 @@ export default function ReviewFormScreen() {
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("beforeRemove", (e) => {
+      // Always allow programmatic reset (post-save navigation)
+      if (e.data.action.type === "RESET") {
+        return;
+      }
+
       // Prevent back navigation if we are currently saving
       if (isSaving) {
         e.preventDefault();
@@ -133,7 +138,8 @@ export default function ReviewFormScreen() {
             title: title.trim(),
             category: category.trim(),
             color: color.trim(),
-            condition: (condition.trim() || "Good") as ItemDocument["condition"],
+            condition: (condition.trim() ||
+              "Good") as ItemDocument["condition"],
             tags: parsedTags,
             notes: notes.trim(),
             imageUrl: "",
