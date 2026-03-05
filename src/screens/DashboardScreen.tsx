@@ -35,7 +35,7 @@ import {
   useDashboardNavigation,
   useRootStackNavigation,
 } from "@/types/navigation.types";
-import type { ItemDocument } from "@/types/item.types";
+import type { ItemDocument, LocalDraft } from "@/types/item.types";
 
 const SKELETON_COUNT = 3;
 const ITEM_SEPARATOR_HEIGHT = theme.spacing.space2;
@@ -125,6 +125,7 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const userId = useAuthStore((state) => state.user?.uid);
   const items = useItemStore((state) => state.items);
+  const drafts = useItemStore((state) => state.drafts);
   const isLoading = useItemStore((state) => state.isLoading);
   const searchQuery = useItemStore((state) => state.searchQuery);
   const categoryFilter = useItemStore((state) => state.categoryFilter);
@@ -137,19 +138,61 @@ export default function DashboardScreen() {
   const shimmerAnim = useRef(new Animated.Value(0.3)).current;
   const debouncedSearchText = useDebounce(searchText, SEARCH_DEBOUNCE_MS);
 
+  const draftToDisplayItem = useCallback((draft: LocalDraft): ItemDocument => {
+    return {
+      id: draft.localId,
+      title: draft.item.title ?? "",
+      category: draft.item.category ?? "",
+      color: draft.item.color ?? "",
+      condition: (draft.item.condition as ItemDocument["condition"]) ?? "Good",
+      tags: draft.item.tags ?? [],
+      notes: draft.item.notes ?? "",
+      imageUrl: draft.localImageUri,
+      imagePath: "",
+      aiGenerated: draft.item.aiGenerated ?? false,
+      syncStatus: "pending",
+      createdAt: draft.createdAt,
+      updatedAt: draft.createdAt,
+    };
+  }, []);
+
+  const createdAtToMillis = useCallback(
+    (createdAt: ItemDocument["createdAt"]) => {
+      if (typeof createdAt === "string") {
+        const value = new Date(createdAt).getTime();
+        return Number.isNaN(value) ? 0 : value;
+      }
+
+      return createdAt.seconds * 1000;
+    },
+    [],
+  );
+
+  const combinedItems = useMemo(() => {
+    // Filter drafts for current user and map to display items
+    const currentUserDrafts = drafts.filter((d) => d.userId === userId);
+    const draftItems = currentUserDrafts.map(draftToDisplayItem);
+
+    return [...items, ...draftItems].sort((left, right) => {
+      return (
+        createdAtToMillis(right.createdAt) - createdAtToMillis(left.createdAt)
+      );
+    });
+  }, [createdAtToMillis, draftToDisplayItem, drafts, items, userId]);
+
   const categories = useMemo(() => {
     const unique = new Set(
-      items
+      combinedItems
         .map((item) => item.category.trim())
         .filter((category) => category.length > 0),
     );
     return Array.from(unique).sort((a, b) => a.localeCompare(b));
-  }, [items]);
+  }, [combinedItems]);
 
   const filteredItems = useMemo(() => {
     const normalizedSearch = searchQuery.trim().toLowerCase();
 
-    return items.filter((item) => {
+    return combinedItems.filter((item) => {
       const title = item.title.toLowerCase();
       const category = item.category.toLowerCase();
 
@@ -162,7 +205,7 @@ export default function DashboardScreen() {
 
       return matchesSearch && matchesCategory;
     });
-  }, [categoryFilter, items, searchQuery]);
+  }, [categoryFilter, combinedItems, searchQuery]);
 
   const isFilterActive = searchQuery.length > 0 || categoryFilter !== null;
 
