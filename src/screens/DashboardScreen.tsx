@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import CategoryChip from "@/components/CategoryChip";
 import EmptyStateCard from "@/components/EmptyStateCard";
 import ItemCard, { ITEM_CARD_HEIGHT } from "@/components/ItemCard";
+import { OfflineBanner } from "@/components";
 import {
   ITEM_THUMBNAIL_SIZE,
   SEARCH_DEBOUNCE_MS,
@@ -29,6 +30,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { fetchItems } from "@/services/firestoreService";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useItemStore } from "@/stores/useItemStore";
+import { useNetworkStore } from "@/stores/useNetworkStore";
 import {
   useDashboardNavigation,
   useRootStackNavigation,
@@ -126,6 +128,7 @@ export default function DashboardScreen() {
   const isLoading = useItemStore((state) => state.isLoading);
   const searchQuery = useItemStore((state) => state.searchQuery);
   const categoryFilter = useItemStore((state) => state.categoryFilter);
+  const isOnline = useNetworkStore((state) => state.isOnline);
 
   const [refreshing, setRefreshing] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
@@ -326,10 +329,11 @@ export default function DashboardScreen() {
 
   return (
     <View
-      style={styles.screen}
+      style={[styles.screen, { paddingTop: insets.top }]}
       testID="dashboard-screen"
       accessibilityLabel="Dashboard Screen"
     >
+      <OfflineBanner visible={!isOnline} />
       {isLoading ? (
         <DashboardSkeleton shimmerOpacity={shimmerAnim} />
       ) : (
@@ -343,7 +347,7 @@ export default function DashboardScreen() {
           contentContainerStyle={[
             styles.listContent,
             {
-              paddingTop: insets.top + theme.spacing.space4,
+              paddingTop: theme.spacing.space4,
               paddingBottom:
                 insets.bottom +
                 theme.spacing.space4 +

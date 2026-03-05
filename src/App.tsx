@@ -11,8 +11,13 @@ import { useShallow } from "zustand/react/shallow";
 import { RootNavigator } from "@/navigation";
 import { theme } from "@/constants/theme";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { useNetworkStatus } from "@/hooks";
 
 enableScreens();
+
+function InitializedApp() {
+  return <RootNavigator />;
+}
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -25,6 +30,8 @@ export default function App() {
   const { isInitialized } = useAuthStore(
     useShallow((state) => ({ isInitialized: state.isInitialized })),
   );
+
+  useNetworkStatus();
 
   useEffect(() => {
     const unsubscribe = useAuthStore.getState().initialize();
@@ -70,7 +77,7 @@ export default function App() {
               <ActivityIndicator color={theme.colors.primary} size="large" />
             </View>
           ) : (
-            <RootNavigator />
+            <InitializedApp />
           )}
         </NavigationContainer>
       </PaperProvider>
