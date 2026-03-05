@@ -18,6 +18,7 @@ export interface ItemDocument {
 
 export interface LocalDraft {
   localId: string;
+  userId: string;
   item: Partial<ItemDocument>;
   localImageUri: string;
   syncStatus: "pending" | "error";

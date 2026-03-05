@@ -27,9 +27,11 @@ import { cleanupTempImage } from "@/services/imageService";
 import { deleteItemImage, uploadItemImage } from "@/services/storageService";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useItemStore } from "@/stores/useItemStore";
-import type { ItemDocument } from "@/types/item.types";
+import { useNetworkStore } from "@/stores/useNetworkStore";
+import type { ItemDocument, LocalDraft } from "@/types/item.types";
 import { useRootStackNavigation } from "@/types/navigation.types";
 import { useRootStackRoute } from "@/types/navigation.types";
+import { generateDraftId } from "@/utils/generateId";
 
 export default function ReviewFormScreen() {
   const navigation = useRootStackNavigation();
@@ -116,6 +118,48 @@ export default function ReviewFormScreen() {
         return;
       }
 
+      const isOnline = useNetworkStore.getState().isOnline;
+
+      const parsedTags = tags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+
+      if (!isOnline) {
+        const draft: LocalDraft = {
+          localId: generateDraftId(),
+          userId,
+          item: {
+            title: title.trim(),
+            category: category.trim(),
+            color: color.trim(),
+            condition: (condition.trim() || "Good") as ItemDocument["condition"],
+            tags: parsedTags,
+            notes: notes.trim(),
+            imageUrl: "",
+            imagePath: "",
+            aiGenerated: Boolean(aiResult),
+            syncStatus: "pending",
+          },
+          localImageUri: imageUri,
+          syncStatus: "pending",
+          retryCount: 0,
+          createdAt: new Date().toISOString(),
+        };
+
+        useItemStore.getState().addDraft(draft);
+
+        setSnackbarMessage("Saved offline — will sync when connected");
+        setSnackbarVisible(true);
+        // Note: Keep isSaving true until navigation reset to prevent double-taps
+
+        setTimeout(() => {
+          navigation.reset({ index: 0, routes: [{ name: "Main" }] });
+        }, 1500);
+
+        return;
+      }
+
       let finalStoragePath = existingStoragePath;
       let finalDownloadUrl = existingDownloadUrl;
 
@@ -124,11 +168,6 @@ export default function ReviewFormScreen() {
         finalStoragePath = uploadResult.storagePath;
         finalDownloadUrl = uploadResult.downloadUrl;
       }
-
-      const parsedTags = tags
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter(Boolean);
 
       const now = Timestamp.now();
       const itemData: Omit<ItemDocument, "id"> = {
@@ -150,9 +189,12 @@ export default function ReviewFormScreen() {
         const savedItem = await saveItem(userId, itemData);
         useItemStore.getState().addItem(savedItem);
 
+        // Clean up the temporary image after successful upload and save
+        void cleanupTempImage(imageUri);
+
         setSnackbarMessage("Item saved");
         setSnackbarVisible(true);
-        setIsSaving(false);
+        // Note: Keep isSaving true until navigation reset to prevent double-taps
 
         setTimeout(() => {
           navigation.reset({ index: 0, routes: [{ name: "Main" }] });
