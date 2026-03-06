@@ -12,12 +12,13 @@ export interface ItemDocument {
   imagePath: string;
   aiGenerated: boolean;
   syncStatus: "synced" | "pending" | "error";
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  createdAt: Timestamp | string;
+  updatedAt: Timestamp | string;
 }
 
 export interface LocalDraft {
   localId: string;
+  userId: string;
   item: Partial<ItemDocument>;
   localImageUri: string;
   syncStatus: "pending" | "error";

@@ -32,6 +32,18 @@
     },
     "plugins": [
       "expo-web-browser",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "SnapLog needs camera access to photograph items for your inventory."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "SnapLog needs access to your photo library so you can select existing photos for cataloging."
+        }
+      ],
       "./node_modules/@react-native-google-signin/google-signin/app.plugin.js"
     ]
   }

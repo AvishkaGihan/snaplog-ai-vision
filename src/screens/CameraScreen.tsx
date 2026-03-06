@@ -1,23 +1,816 @@
-import React from "react";
-import { View, StyleSheet } from "react-native";
-import { Text } from "react-native-paper";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Alert,
+  AppState,
+  AppStateStatus,
+  Image,
+  Linking,
+  Pressable,
+  StyleSheet,
+  View,
+} from "react-native";
+import { CameraView, useCameraPermissions } from "expo-camera";
+import * as ImagePicker from "expo-image-picker";
+import {
+  ActivityIndicator,
+  Button,
+  IconButton,
+  Snackbar,
+  Text,
+} from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { PermissionCard, ScanLoadingOverlay } from "@/components";
+import { SNACKBAR_DURATION_MS } from "@/constants/config";
 import { theme } from "@/constants/theme";
+import { analyzeItem } from "@/services/aiService";
+import { cleanupTempImage, compressImage } from "@/services/imageService";
+import { deleteItemImage, uploadItemImage } from "@/services/storageService";
+import { useAuthStore } from "@/stores/useAuthStore";
+import type { AnalyzeItemResponseData } from "@/types/api.types";
+import { useRootStackNavigation } from "@/types/navigation.types";
 
 export default function CameraScreen() {
+  const navigation = useRootStackNavigation();
   const insets = useSafeAreaInsets();
+  const cameraRef = useRef<CameraView | null>(null);
+  const [permission, requestPermission] = useCameraPermissions();
+  const [cameraReady, setCameraReady] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState(false);
+  const [hasUploadedData, setHasUploadedData] = useState(false);
+  const [showErrorSnackbar, setShowErrorSnackbar] = useState(false);
+  const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
+  const [showGalleryPermission, setShowGalleryPermission] = useState(false);
+  const showGalleryPermissionRef = useRef(false);
+  const isMounted = useRef(true);
+  const isNavigating = useRef(false);
+  const analysisTimedOut = useRef(false);
+  const processingData = useRef<{
+    compressedUri?: string;
+    storagePath?: string;
+    downloadUrl?: string;
+  }>({});
+  const appState = useRef(AppState.currentState);
+  const user = useAuthStore((state) => state.user);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    showGalleryPermissionRef.current = showGalleryPermission;
+  }, [showGalleryPermission]);
+
+  const handleTakePicture = useCallback(async () => {
+    if (!cameraRef.current || !cameraReady || isCapturing) {
+      return;
+    }
+
+    try {
+      setIsCapturing(true);
+      const picture = await cameraRef.current.takePictureAsync({
+        quality: 0.8,
+      });
+
+      if (isMounted.current && picture?.uri) {
+        setCapturedImageUri(picture.uri);
+      }
+    } catch (error) {
+      console.warn("Failed to capture image", error);
+    } finally {
+      if (isMounted.current) {
+        setIsCapturing(false);
+      }
+    }
+  }, [cameraReady, isCapturing]);
+
+  const navigateToReviewForm = useCallback(
+    (
+      imageUri: string,
+      aiResult?: AnalyzeItemResponseData,
+      storagePath?: string,
+      downloadUrl?: string,
+    ) => {
+      isNavigating.current = true;
+      navigation.navigate("ReviewForm", {
+        imageUri,
+        aiResult,
+        storagePath,
+        downloadUrl,
+      });
+
+      setTimeout(() => {
+        if (isMounted.current) {
+          isNavigating.current = false;
+        }
+      }, 500);
+    },
+    [navigation],
+  );
+
+  const handleAnalysisTimeout = useCallback(() => {
+    if (!capturedImageUri || isNavigating.current || analysisTimedOut.current) {
+      return;
+    }
+
+    analysisTimedOut.current = true;
+    setIsAnalyzing(false);
+    setIsCompressing(false);
+    setAnalysisError(true);
+    setShowErrorSnackbar(true);
+  }, [capturedImageUri]);
+
+  const handleFillManually = useCallback(() => {
+    if (!capturedImageUri || isNavigating.current) {
+      return;
+    }
+
+    const { compressedUri, storagePath, downloadUrl } = processingData.current;
+    navigateToReviewForm(
+      compressedUri || capturedImageUri,
+      undefined,
+      storagePath,
+      downloadUrl,
+    );
+
+    // Reset error state so back navigation doesn't land on error overlay
+    setAnalysisError(false);
+  }, [capturedImageUri, navigateToReviewForm]);
+
+  const handleRetryAnalysis = useCallback(async () => {
+    if (!capturedImageUri || isNavigating.current) {
+      return;
+    }
+
+    if (!user?.uid) {
+      Alert.alert("Not Signed In", "You must be signed in to analyze items.");
+      return;
+    }
+
+    analysisTimedOut.current = false;
+    setAnalysisError(false);
+
+    try {
+      const { downloadUrl, storagePath, compressedUri } =
+        processingData.current;
+
+      if (downloadUrl && hasUploadedData) {
+        setIsAnalyzing(true);
+
+        const aiResponse = await analyzeItem(downloadUrl);
+
+        if (!isMounted.current || analysisTimedOut.current) {
+          return;
+        }
+
+        setIsAnalyzing(false);
+
+        if (aiResponse.success && aiResponse.data) {
+          navigateToReviewForm(
+            compressedUri || capturedImageUri,
+            aiResponse.data,
+            storagePath,
+            downloadUrl,
+          );
+          return;
+        }
+
+        console.warn(
+          "AI retry failed",
+          aiResponse.error?.code,
+          aiResponse.error?.message,
+        );
+        setAnalysisError(true);
+        setShowErrorSnackbar(true);
+        return;
+      }
+
+      setIsAnalyzing(true); // Set to true immediately so ScanLoadingOverlay appears
+      setIsCompressing(true);
+
+      let finalCompressedUri = compressedUri;
+      if (!finalCompressedUri) {
+        const compressed = await compressImage(capturedImageUri);
+        processingData.current.compressedUri = compressed.uri;
+        finalCompressedUri = compressed.uri;
+      }
+
+      if (!isMounted.current) {
+        return;
+      }
+
+      const uploadResult = await uploadItemImage(finalCompressedUri, user.uid);
+      processingData.current.storagePath = uploadResult.storagePath;
+      processingData.current.downloadUrl = uploadResult.downloadUrl;
+      setHasUploadedData(true);
+
+      if (!isMounted.current || analysisTimedOut.current) {
+        return;
+      }
+
+      setIsCompressing(false);
+
+      const aiResponse = await analyzeItem(uploadResult.downloadUrl);
+
+      if (!isMounted.current || analysisTimedOut.current) {
+        return;
+      }
+
+      setIsAnalyzing(false);
+
+      if (aiResponse.success && aiResponse.data) {
+        navigateToReviewForm(
+          finalCompressedUri,
+          aiResponse.data,
+          uploadResult.storagePath,
+          uploadResult.downloadUrl,
+        );
+        return;
+      }
+
+      console.warn(
+        "AI retry failed",
+        aiResponse.error?.code,
+        aiResponse.error?.message,
+      );
+      setAnalysisError(true);
+      setShowErrorSnackbar(true);
+    } catch (error) {
+      console.warn("Retry analysis failed", error);
+
+      if (!isMounted.current) {
+        return;
+      }
+
+      setIsCompressing(false);
+      setIsAnalyzing(false);
+
+      if (!analysisTimedOut.current) {
+        setAnalysisError(true);
+        setShowErrorSnackbar(true);
+      }
+    }
+  }, [capturedImageUri, hasUploadedData, navigateToReviewForm, user]);
+
+  const handleUsePhoto = useCallback(async () => {
+    if (
+      !capturedImageUri ||
+      isNavigating.current ||
+      isCompressing ||
+      isAnalyzing
+    ) {
+      return;
+    }
+
+    if (!user?.uid) {
+      Alert.alert("Not Signed In", "You must be signed in to analyze items.");
+      return;
+    }
+
+    analysisTimedOut.current = false;
+    processingData.current = {};
+    setAnalysisError(false);
+    setShowErrorSnackbar(false);
+    setHasUploadedData(false);
+
+    try {
+      setIsAnalyzing(true); // Start timeout protection immediately
+      setIsCompressing(true);
+      const compressed = await compressImage(capturedImageUri);
+      processingData.current.compressedUri = compressed.uri;
+
+      if (!isMounted.current) {
+        return;
+      }
+
+      // Keep isCompressing=true during upload so button stays disabled
+      const { downloadUrl, storagePath } = await uploadItemImage(
+        compressed.uri,
+        user.uid,
+      );
+      processingData.current.storagePath = storagePath;
+      processingData.current.downloadUrl = downloadUrl;
+      setHasUploadedData(true);
+
+      if (!isMounted.current || analysisTimedOut.current) {
+        return;
+      }
+
+      // Upload complete, transition to purely analysis phase
+      setIsCompressing(false);
+
+      const aiResponse = await analyzeItem(downloadUrl);
+
+      if (!isMounted.current || analysisTimedOut.current) {
+        return;
+      }
+
+      setIsAnalyzing(false);
+
+      if (aiResponse.success && aiResponse.data) {
+        navigateToReviewForm(
+          compressed.uri,
+          aiResponse.data,
+          storagePath,
+          downloadUrl,
+        );
+        return;
+      }
+
+      console.warn(
+        "AI analysis failed",
+        aiResponse.error?.code,
+        aiResponse.error?.message,
+      );
+      setAnalysisError(true);
+      setShowErrorSnackbar(true);
+    } catch (error) {
+      console.warn("Image analysis flow failed", error);
+
+      if (!isMounted.current) {
+        return;
+      }
+
+      setIsCompressing(false);
+      setIsAnalyzing(false);
+
+      if (!analysisTimedOut.current) {
+        setAnalysisError(true);
+        setShowErrorSnackbar(true);
+      }
+    }
+  }, [
+    capturedImageUri,
+    isAnalyzing,
+    isCompressing,
+    navigateToReviewForm,
+    user,
+  ]);
+
+  const handleRetake = useCallback(() => {
+    const { compressedUri, storagePath } = processingData.current;
+
+    if (compressedUri) {
+      void cleanupTempImage(compressedUri);
+    }
+
+    if (storagePath) {
+      void deleteItemImage(storagePath);
+    }
+
+    setCapturedImageUri(null);
+    setAnalysisError(false);
+    setShowErrorSnackbar(false);
+    setHasUploadedData(false);
+    setIsAnalyzing(false);
+    setIsCompressing(false);
+    analysisTimedOut.current = false;
+    processingData.current = {};
+  }, []);
+
+  const handleDiscard = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("beforeRemove", (e) => {
+      // Prevent back navigation if we are actively compressing or analyzing
+      if (isCompressing || isAnalyzing) {
+        e.preventDefault();
+        return;
+      }
+
+      // If heading back normally (hardware back or handleDiscard's goBack), perform cleanup
+      if (e.data.action.type === "GO_BACK") {
+        const { compressedUri, storagePath } = processingData.current;
+        if (compressedUri) {
+          void cleanupTempImage(compressedUri);
+        }
+        if (storagePath) {
+          void deleteItemImage(storagePath);
+        }
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, isCompressing, isAnalyzing]);
+
+  const handleRequestPermission = useCallback(() => {
+    requestPermission();
+  }, [requestPermission]);
+
+  const openGalleryPicker = useCallback(async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: false,
+      quality: 0.8,
+    });
+
+    if (!isMounted.current) return;
+
+    if (!result.canceled && result.assets[0]) {
+      setCapturedImageUri(result.assets[0].uri);
+    }
+  }, []);
+
+  const handlePickFromGallery = useCallback(async () => {
+    try {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!isMounted.current) return;
+
+      if (status !== "granted") {
+        setShowGalleryPermission(true);
+        return;
+      }
+
+      setShowGalleryPermission(false);
+      await openGalleryPicker();
+    } catch (error) {
+      console.warn("Failed to pick image from gallery", error);
+      Alert.alert(
+        "Gallery Error",
+        "Failed to open the photo gallery. Please try again.",
+      );
+    }
+  }, [openGalleryPicker]);
+
+  const handleAllowGalleryPermission = useCallback(async () => {
+    try {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!isMounted.current) return;
+
+      if (status !== "granted") {
+        setShowGalleryPermission(true);
+        return;
+      }
+
+      setShowGalleryPermission(false);
+      await openGalleryPicker();
+    } catch (error) {
+      console.warn("Failed to request gallery permission", error);
+      Alert.alert(
+        "Permission Error",
+        "Failed to request photo gallery access. Please try again.",
+      );
+    }
+  }, [openGalleryPicker]);
+
+  const handleDismissGalleryPermission = useCallback(() => {
+    setShowGalleryPermission(false);
+  }, []);
+
+  const handleOpenSettings = useCallback(() => {
+    Linking.openSettings();
+  }, []);
+
+  const handleAppForegroundPermissionRecheck = useCallback(async () => {
+    try {
+      await requestPermission();
+    } catch (error) {
+      console.warn(
+        "Failed to re-check camera permission after app foreground",
+        error,
+      );
+    }
+
+    if (!showGalleryPermissionRef.current) {
+      return;
+    }
+
+    try {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!isMounted.current) return;
+
+      if (status === "granted") {
+        setShowGalleryPermission(false);
+        await openGalleryPicker();
+      }
+    } catch (error) {
+      console.warn(
+        "Failed to re-check gallery permission after app foreground",
+        error,
+      );
+    }
+  }, [openGalleryPicker, requestPermission]);
+
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+    let isChecking = false;
+
+    const subscription = AppState.addEventListener(
+      "change",
+      (nextAppState: AppStateStatus) => {
+        // Only run check if we are transitioning FROM background TO active
+        const isComingToForeground =
+          appState.current.match(/inactive|background/) &&
+          nextAppState === "active";
+
+        if (isComingToForeground && !isChecking) {
+          isChecking = true;
+          // Debounce the check slightly to let the OS permission dialogs settle
+          clearTimeout(timeoutId);
+          timeoutId = setTimeout(() => {
+            if (isMounted.current) {
+              void handleAppForegroundPermissionRecheck().finally(() => {
+                isChecking = false;
+              });
+            } else {
+              isChecking = false;
+            }
+          }, 500);
+        }
+
+        appState.current = nextAppState;
+      },
+    );
+
+    return () => {
+      clearTimeout(timeoutId);
+      subscription.remove();
+    };
+  }, [handleAppForegroundPermissionRecheck]);
+
+  if (!permission) {
+    return (
+      <View style={styles.loadingContainer} testID="camera-screen-loading">
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
+  if (!permission.granted) {
+    return (
+      <View
+        style={[
+          styles.permissionContainer,
+          { paddingTop: insets.top + theme.spacing.space4 },
+        ]}
+        accessibilityLiveRegion="polite"
+      >
+        <PermissionCard
+          icon="camera"
+          title="Camera Access Needed"
+          description="SnapLog needs camera access to photograph items for your inventory. Your photos are processed securely."
+          onAllow={handleRequestPermission}
+          allowLabel="Allow Camera Access"
+          onOpenSettings={handleOpenSettings}
+          showSettingsButton
+          testID="camera-permission-card"
+          allowButtonTestID="camera-permission-allow"
+          settingsButtonTestID="camera-permission-settings"
+          allowAccessibilityLabel="Allow camera access"
+          settingsAccessibilityLabel="Open device settings"
+        />
+      </View>
+    );
+  }
+
+  if (capturedImageUri) {
+    return (
+      <View style={styles.screen}>
+        <Image
+          source={{ uri: capturedImageUri }}
+          style={styles.previewImage}
+          resizeMode="cover"
+          accessibilityLabel="Captured photo preview"
+        />
+
+        <ScanLoadingOverlay
+          visible={isAnalyzing}
+          onTimeout={handleAnalysisTimeout}
+        />
+
+        {analysisError && !isAnalyzing ? (
+          <View
+            style={styles.errorOverlay}
+            testID="analysis-error-state"
+            accessibilityLabel="AI analysis failed"
+            accessibilityRole="alert"
+          >
+            <IconButton
+              icon="alert-circle-outline"
+              size={48}
+              iconColor={theme.colors.error}
+              testID="analysis-error-icon"
+              accessibilityLabel="Error icon"
+            />
+            <Text style={styles.errorMessage} testID="analysis-error-message">
+              Couldn't analyze image.{"\n"}Fill in details manually or retry.
+            </Text>
+            <View style={styles.errorActions}>
+              <Button
+                mode="contained"
+                onPress={() => {
+                  void handleRetryAnalysis();
+                }}
+                style={styles.retryButton}
+                contentStyle={styles.previewButtonContent}
+                testID="analysis-retry-button"
+                accessibilityLabel="Try again"
+              >
+                Try Again
+              </Button>
+              <Button
+                mode="outlined"
+                onPress={handleFillManually}
+                style={styles.fillManuallyButton}
+                contentStyle={styles.previewButtonContent}
+                testID="analysis-fill-manually-button"
+                accessibilityLabel="Fill in manually"
+              >
+                Fill Manually
+              </Button>
+            </View>
+          </View>
+        ) : null}
+
+        <IconButton
+          icon="close"
+          size={24}
+          mode="contained"
+          disabled={isCompressing || isAnalyzing}
+          onPress={handleDiscard}
+          style={[
+            styles.closeButton,
+            { top: insets.top + theme.spacing.space2 },
+          ]}
+          iconColor={theme.colors.onBackground}
+          containerColor={theme.colors.surface}
+          testID="camera-close"
+          accessibilityLabel="Close camera"
+        />
+
+        {!isAnalyzing ? (
+          <View
+            style={[
+              styles.previewActions,
+              { paddingBottom: insets.bottom + theme.spacing.space4 },
+            ]}
+          >
+            <Button
+              mode="outlined"
+              onPress={handleRetake}
+              disabled={isCompressing || isAnalyzing}
+              style={styles.previewButton}
+              contentStyle={styles.previewButtonContent}
+              testID="camera-retake"
+              accessibilityLabel="Retake photo"
+            >
+              Retake
+            </Button>
+
+            {!analysisError ? (
+              <Button
+                mode="contained"
+                onPress={() => {
+                  void handleUsePhoto();
+                }}
+                disabled={isCompressing || isAnalyzing}
+                style={styles.previewButton}
+                contentStyle={styles.previewButtonContent}
+                testID="camera-use-photo"
+                accessibilityLabel="Use photo"
+              >
+                {isCompressing || isAnalyzing ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={theme.colors.onPrimary}
+                    testID="camera-compressing-indicator"
+                    accessibilityLabel={
+                      isCompressing ? "Compressing image" : "Analyzing image"
+                    }
+                  />
+                ) : (
+                  "Use Photo"
+                )}
+              </Button>
+            ) : null}
+          </View>
+        ) : null}
+
+        <Snackbar
+          visible={showErrorSnackbar}
+          onDismiss={() => setShowErrorSnackbar(false)}
+          duration={SNACKBAR_DURATION_MS}
+          style={styles.snackbar}
+          testID="analysis-error-snackbar"
+        >
+          Couldn't analyze image. Fill in details manually or retry.
+        </Snackbar>
+      </View>
+    );
+  }
 
   return (
     <View
-      style={[
-        styles.screen,
-        { paddingTop: insets.top, paddingBottom: insets.bottom },
-      ]}
+      style={styles.screen}
       testID="camera-screen"
       accessibilityLabel="Camera Screen"
     >
-      <Text style={styles.text}>Camera</Text>
+      <CameraView
+        ref={cameraRef}
+        style={StyleSheet.absoluteFill}
+        facing="back"
+        animateShutter
+        onCameraReady={() => setCameraReady(true)}
+        accessibilityLabel="Camera viewfinder"
+      />
+
+      <IconButton
+        icon="close"
+        size={24}
+        mode="contained"
+        disabled={!cameraReady || isCapturing}
+        onPress={handleDiscard}
+        style={[styles.closeButton, { top: insets.top + theme.spacing.space2 }]}
+        iconColor={theme.colors.onBackground}
+        containerColor={theme.colors.surface}
+        testID="camera-close"
+        accessibilityLabel="Close camera"
+      />
+
+      <View
+        style={[
+          styles.shutterContainer,
+          { paddingBottom: insets.bottom + theme.spacing.space4 },
+        ]}
+      >
+        <IconButton
+          icon="image-multiple"
+          size={24}
+          mode="contained"
+          onPress={handlePickFromGallery}
+          style={styles.galleryButton}
+          iconColor={theme.colors.onBackground}
+          containerColor="rgba(26, 26, 34, 0.6)"
+          testID="camera-gallery-picker"
+          accessibilityRole="button"
+          accessibilityLabel="Pick from gallery"
+        />
+
+        <Pressable
+          onPress={handleTakePicture}
+          disabled={!cameraReady || isCapturing}
+          style={[
+            styles.shutterButton,
+            (!cameraReady || isCapturing) && styles.shutterButtonDisabled,
+          ]}
+          testID="camera-shutter"
+          accessibilityRole="button"
+          accessibilityLabel="Take photo"
+        >
+          {isCapturing ? (
+            <ActivityIndicator size="small" color={theme.colors.onBackground} />
+          ) : null}
+        </Pressable>
+
+        <View style={styles.shutterSpacer} />
+      </View>
+
+      {showGalleryPermission ? (
+        <View
+          style={styles.galleryPermissionOverlay}
+          accessibilityLiveRegion="polite"
+        >
+          <PermissionCard
+            icon="image-multiple"
+            title="Photo Library Access Needed"
+            description="SnapLog needs access to your photo library so you can select existing photos for cataloging."
+            onAllow={handleAllowGalleryPermission}
+            allowLabel="Allow Photo Access"
+            onOpenSettings={handleOpenSettings}
+            showSettingsButton
+            testID="gallery-permission-card"
+            allowButtonTestID="gallery-permission-allow"
+            settingsButtonTestID="gallery-permission-settings"
+            allowAccessibilityLabel="Allow photo library access"
+            settingsAccessibilityLabel="Open device settings"
+          />
+
+          <Button
+            mode="text"
+            onPress={handleDismissGalleryPermission}
+            style={styles.galleryPermissionDismissButton}
+            contentStyle={styles.previewButtonContent}
+            testID="gallery-permission-dismiss"
+            accessibilityLabel="Dismiss gallery permission message"
+          >
+            Dismiss
+          </Button>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -26,11 +819,107 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
     alignItems: "center",
     justifyContent: "center",
+  },
+  permissionContainer: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
     padding: theme.spacing.space4,
   },
-  text: {
+  closeButton: {
+    position: "absolute",
+    left: theme.spacing.space3,
+    zIndex: 2,
+  },
+  shutterContainer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: theme.spacing.space4,
+  },
+  galleryButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    margin: 0,
+  },
+  shutterButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: theme.colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  shutterButtonDisabled: {
+    opacity: 0.6,
+  },
+  shutterSpacer: {
+    width: 44,
+    height: 44,
+  },
+  previewImage: {
+    flex: 1,
+    width: "100%",
+  },
+  previewActions: {
+    position: "absolute",
+    left: theme.spacing.space4,
+    right: theme.spacing.space4,
+    bottom: 0,
+    gap: theme.spacing.space3,
+  },
+  previewButton: {
+    borderRadius: theme.borderRadius.buttons,
+  },
+  previewButtonContent: {
+    minHeight: 44,
+  },
+  errorOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(15, 15, 19, 0.85)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+    padding: theme.spacing.space4,
+  },
+  errorMessage: {
+    ...theme.typography.bodyLarge,
     color: theme.colors.onBackground,
+    textAlign: "center",
+    marginBottom: theme.spacing.space4,
+  },
+  errorActions: {
+    width: "100%",
+    gap: theme.spacing.space3,
+  },
+  retryButton: {
+    borderRadius: theme.borderRadius.buttons,
+  },
+  fillManuallyButton: {
+    borderRadius: theme.borderRadius.buttons,
+  },
+  snackbar: {
+    backgroundColor: theme.colors.surface,
+  },
+  galleryPermissionOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(15, 15, 19, 0.85)",
+    justifyContent: "center",
+    padding: theme.spacing.space4,
+    gap: theme.spacing.space3,
+    zIndex: 10,
+  },
+  galleryPermissionDismissButton: {
+    borderRadius: theme.borderRadius.buttons,
   },
 });
