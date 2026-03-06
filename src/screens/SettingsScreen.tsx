@@ -43,12 +43,22 @@ export default function SettingsScreen(): React.ReactElement {
   const isAnonymous = user?.isAnonymous ?? true;
 
   const handleGoogleSignIn = async () => {
-    await signIn();
+    try {
+      await signIn();
+    } catch (error) {
+      console.error("[SettingsScreen] Error signing in with Google:", error);
+      showSnackbar("Couldn't sign in with Google. Please try again.");
+    }
   };
 
   const handleConfirmSignOut = async () => {
     setDialogVisible(false);
-    await signOut();
+    try {
+      await signOut();
+    } catch (error) {
+      console.error("[SettingsScreen] Error signing out:", error);
+      showSnackbar("Couldn't sign out. Please try again.");
+    }
   };
 
   const showSnackbar = (message: string): void => {
@@ -70,7 +80,8 @@ export default function SettingsScreen(): React.ReactElement {
 
     try {
       await exportAndShareCsv(items, drafts);
-    } catch {
+    } catch (error) {
+      console.error("[SettingsScreen] Error exporting CSV:", error);
       showSnackbar("Couldn't export items. Please try again.");
     } finally {
       setIsExporting(false);
@@ -90,7 +101,11 @@ export default function SettingsScreen(): React.ReactElement {
           Settings
         </Text>
 
-        <View style={styles.userCard}>
+        <View
+          style={styles.userCard}
+          testID="settings-user-card"
+          accessibilityLabel="User account information"
+        >
           <View style={styles.userRow}>
             {user?.photoURL ? (
               <Avatar.Image
@@ -109,10 +124,20 @@ export default function SettingsScreen(): React.ReactElement {
             )}
 
             <View style={styles.userTextContainer}>
-              <Text variant="titleMedium" style={styles.userName}>
+              <Text
+                variant="titleMedium"
+                style={styles.userName}
+                testID="settings-user-display-name"
+                accessibilityLabel={`Display name: ${displayName}`}
+              >
                 {displayName}
               </Text>
-              <Text variant="bodyMedium" style={styles.userEmail}>
+              <Text
+                variant="bodyMedium"
+                style={styles.userEmail}
+                testID="settings-user-email"
+                accessibilityLabel={`Email: ${emailText}`}
+              >
                 {emailText}
               </Text>
             </View>
@@ -169,9 +194,14 @@ export default function SettingsScreen(): React.ReactElement {
           onDismiss={() => setDialogVisible(false)}
           testID="settings-sign-out-dialog"
         >
-          <Dialog.Title>Sign out?</Dialog.Title>
+          <Dialog.Title accessibilityLabel="Sign out question">
+            Sign out?
+          </Dialog.Title>
           <Dialog.Content>
-            <Text variant="bodyMedium">
+            <Text
+              variant="bodyMedium"
+              accessibilityLabel="Sign out detail message"
+            >
               You&apos;ll be signed in as an anonymous user.
             </Text>
           </Dialog.Content>
@@ -236,10 +266,10 @@ const styles = StyleSheet.create({
     gap: theme.spacing.space1,
   },
   userName: {
-    color: theme.colors.onBackground,
+    color: theme.colors.onSurface,
   },
   userEmail: {
-    color: theme.colors.onBackground,
+    color: theme.colors.onSurface,
   },
   primaryButton: {
     borderRadius: theme.borderRadius.buttons,
