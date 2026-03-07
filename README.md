@@ -71,19 +71,17 @@
 
 <div align="center">
 
-|                                Camera Screen                                |                                AI Scan Loading                                 |                                Review Form                                |
-| :-------------------------------------------------------------------------: | :----------------------------------------------------------------------------: | :-----------------------------------------------------------------------: |
-| <img src="docs/images/screen-camera.png" width="220" alt="Camera Screen" /> | <img src="docs/images/screen-loading.png" width="220" alt="AI Scan Loading" /> | <img src="docs/images/screen-review.png" width="220" alt="Review Form" /> |
-|                          Point camera at any item                           |                      Gemini 2.5 Flash analyzes the photo                       |                     Pre-filled form ready to confirm                      |
+|                                Camera Screen                                 |                                 AI Scan Loading                                 |                                Review Form                                 |
+| :--------------------------------------------------------------------------: | :-----------------------------------------------------------------------------: | :------------------------------------------------------------------------: |
+| <img src="docs/images/screen-camera.jpeg" width="220" alt="Camera Screen" /> | <img src="docs/images/screen-loading.jpeg" width="220" alt="AI Scan Loading" /> | <img src="docs/images/screen-review.jpeg" width="220" alt="Review Form" /> |
+|                           Point camera at any item                           |                       Gemini 2.5 Flash analyzes the photo                       |                      Pre-filled form ready to confirm                      |
 
-|                                 Dashboard                                  |                                Item Detail                                |                                 Settings                                 |
-| :------------------------------------------------------------------------: | :-----------------------------------------------------------------------: | :----------------------------------------------------------------------: |
-| <img src="docs/images/screen-dashboard.png" width="220" alt="Dashboard" /> | <img src="docs/images/screen-detail.png" width="220" alt="Item Detail" /> | <img src="docs/images/screen-settings.png" width="220" alt="Settings" /> |
-|                        Search & browse your catalog                        |                        Full item record with photo                        |                       Auth, export & sync controls                       |
+|                                  Dashboard                                  |                                Item Detail                                 |                                 Settings                                  |
+| :-------------------------------------------------------------------------: | :------------------------------------------------------------------------: | :-----------------------------------------------------------------------: |
+| <img src="docs/images/screen-dashboard.jpeg" width="220" alt="Dashboard" /> | <img src="docs/images/screen-detail.jpeg" width="220" alt="Item Detail" /> | <img src="docs/images/screen-settings.jpeg" width="220" alt="Settings" /> |
+|                        Search & browse your catalog                         |                        Full item record with photo                         |                       Auth, export & sync controls                        |
 
 </div>
-
-> 💡 **Tip:** Record a short GIF of the full flow (camera → save) and add it here as `docs/images/demo.gif` for maximum impact.
 
 ---
 
